@@ -17,6 +17,8 @@ export async function handler(event) {
   let statusCode = 200;
   const headers = {
     "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "DELETE"
   };
   try {
     const segment = awsXRay.getSegment();
@@ -27,7 +29,7 @@ export async function handler(event) {
         new DeleteCommand({
           TableName: tableName,
           Key: {
-            id: 'PRODUCT#' + event.pathParameters.id,
+            id: event.pathParameters.id,
           },
         })
     );

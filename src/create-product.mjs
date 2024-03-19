@@ -18,6 +18,8 @@ export async function handler(event) {
   let statusCode = 200;
   const headers = {
     "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST"
   };
   try {
     let requestJSON = JSON.parse(event.body);

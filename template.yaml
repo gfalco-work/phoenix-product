@@ -8,7 +8,11 @@ Globals:
     Tracing: Active
   Api:
     TracingEnabled: true
-    Cors: "'*'"
+    Cors:
+      AllowMethods: "'POST, GET, DELETE'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'*'"
+      MaxAge: "'86400'"
 
 Parameters:
   ItemsTable:

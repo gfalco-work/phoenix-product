@@ -17,6 +17,8 @@ export async function handler(event) {
   let statusCode = 200;
   const headers = {
     "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET"
   };
   try {
     const segment = awsXRay.getSegment();
