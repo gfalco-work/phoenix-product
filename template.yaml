@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Product CRUD Apis
+
+Globals:
+  Function:
+    Tracing: Active
+  Api:
+    TracingEnabled: true
+    Cors: "'*'"
+
+Parameters:
+  ItemsTable:
+    Type: String
+    Default: OnlineShop
+    Description: The name of the existing DynamoDB table
+
+Resources:
+  CreateProductLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: create-product.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products
+            Method: POST
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:PutItem
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+
+
+  GetProductLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: get-product.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products/{id}
+            Method: GET
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+                - dynamodb:Scan
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+
+  GetProductsLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: get-products.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products
+            Method: GET
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:Scan
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+
+  DeleteProductLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: delete-products.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products/{id}
+            Method: DELETE
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:DeleteItem
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
