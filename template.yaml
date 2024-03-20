@@ -6,6 +6,9 @@ Description: Product CRUD Apis
 Globals:
   Function:
     Tracing: Active
+    Tags:
+      app: product-api
+      project: phoenix
   Api:
     TracingEnabled: true
     Cors:
@@ -14,13 +17,69 @@ Globals:
       AllowOrigin: "'*'"
       MaxAge: "'86400'"
 
-Parameters:
-  ItemsTable:
-    Type: String
-    Default: OnlineShop
-    Description: The name of the existing DynamoDB table
-
 Resources:
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GS1-PK
+          AttributeType: S
+        - AttributeName: GS1-SK
+          AttributeType: S
+        - AttributeName: GS2-PK
+          AttributeType: S
+        - AttributeName: GS2-SK
+          AttributeType: S
+        - AttributeName: LS1-SK
+          AttributeType: S
+      LocalSecondaryIndexes:
+        - IndexName: LS1
+          KeySchema:
+            - AttributeName: PK
+              KeyType: HASH
+            - AttributeName: LS1-SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType:  ALL
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GS1-PK
+              KeyType: HASH
+            - AttributeName: GS1-SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GS2-PK
+              KeyType: HASH
+            - AttributeName: GS2-SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      TableName: "OnlineShop"
+
   CreateProductLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -39,8 +98,7 @@ Resources:
             - Action:
                 - dynamodb:PutItem
               Effect: Allow
-              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
-
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
 
   GetProductLambdaFunction:
     Type: AWS::Serverless::Function
@@ -62,7 +120,7 @@ Resources:
                 - dynamodb:Query
                 - dynamodb:Scan
               Effect: Allow
-              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
 
   GetProductsLambdaFunction:
     Type: AWS::Serverless::Function
@@ -82,7 +140,7 @@ Resources:
             - Action:
                 - dynamodb:Scan
               Effect: Allow
-              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
 
   DeleteProductLambdaFunction:
     Type: AWS::Serverless::Function
@@ -102,4 +160,4 @@ Resources:
             - Action:
                 - dynamodb:DeleteItem
               Effect: Allow
-              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ItemsTable}
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
