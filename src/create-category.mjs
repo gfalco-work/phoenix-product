@@ -33,7 +33,7 @@ export async function handler(event) {
         new PutCommand({
           TableName: tableName,
           Item: {
-            PK: 'PRODUCT#' + requestJSON.id,
+            PK: 'CATEGORY#' + requestJSON.id,
             SK: requestJSON.name,
             name: requestJSON.name,
             description: requestJSON.description
@@ -42,6 +42,8 @@ export async function handler(event) {
     );
 
     subSegment.close();
+
+    body = `Put item ${requestJSON.id}`;
   } catch (err) {
     statusCode = 400;
     body = err.message;

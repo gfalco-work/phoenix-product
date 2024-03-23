@@ -1,0 +1,129 @@
+{
+    "Comment": "A description of my state machine",
+    "StartAt": "Parallel",
+    "States": {
+        "Parallel": {
+            "Type": "Parallel",
+            "Next": "Resize Product Images",
+            "Branches": [
+                {
+                    "StartAt": "Create Product Details",
+                    "States": {
+                        "Create Product Details": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "InputPath": "$.body",
+                            "OutputPath": "$.Payload",
+                            "ResultSelector": {
+                                "productId.$": "$.Output.productId"
+                            },
+                            "Parameters": {
+                                "FunctionName": "arn:aws:lambda:eu-west-2:730335265680:function:product-api-CreateProductLambdaFunction-W8Oc5AKuCuWj:$LATEST",
+                                "Payload": {
+                                    "id.$": "$.id",
+                                    "name.$": "$.name",
+                                    "description.$": "$.description"
+                                }
+                            },
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                    ],
+                                    "IntervalSeconds": 1,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "End": true,
+                            "Comment": "Add a product in the Product Table and return the output ProductId"
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Upload Images",
+                    "States": {
+                        "Upload Images": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                                "Payload": {
+                                    "image.$": "$.image"
+                                },
+                                "FunctionName": "arn:aws:lambda:eu-west-2:730335265680:function:ImageService-Uploader-tMIIyJbGYPzc:$LATEST"
+                            },
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException",
+                                        "Lambda.TooManyRequestsException"
+                                    ],
+                                    "IntervalSeconds": 1,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "End": true,
+                            "Comment": "Upload the product image in S3 and return the output Image path",
+                            "InputPath": "$.state.image"
+                        }
+                    }
+                }
+            ]
+        },
+        "Resize Product Images": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:eu-west-2:730335265680:function:ImageService-Resizer-tL3mYhrRKdUC:$LATEST"
+            },
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException",
+                        "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Next": "Update Product Images",
+            "Comment": "As Input it gets a json with product id and image location in s3 to resize the images. It returns a list of images "
+        },
+        "Update Product Images": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:eu-west-2:730335265680:function:ImageService-Uploader-tMIIyJbGYPzc:$LATEST"
+            },
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException",
+                        "Lambda.TooManyRequestsException"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "End": true,
+            "Comment": "It receives as input the product id and the images and it stores product images records with partition key: productId"
+        }
+    }
+}

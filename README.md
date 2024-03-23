@@ -8,7 +8,7 @@ The functions are implements in NodeJs v20
 - [delete-product.mjs](src%2Fdelete-product.mjs) - Lambda function for deleting a product by id
 - [get-product.mjs](src%2Fget-product.mjs) - Lambda function for getting a product by id
 - [get-products.mjs](src%2Fget-products.mjs) - Lambda function for getting all products  
-- package.json - To define the dependencies for the No
+- package.json - To define the dependencies
 - template.yaml - A template that defines the application's AWS resources. 
 
 The application uses several AWS resources, including Lambda functions and an API Gateway API. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.

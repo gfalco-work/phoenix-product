@@ -18,6 +18,9 @@ Globals:
       MaxAge: "'86400'"
 
 Resources:
+  ##########################################################################
+  #   Dynamo DB Product Table                                              #
+  ##########################################################################
   ProductTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -78,8 +81,11 @@ Resources:
         WriteCapacityUnits: 5
       StreamSpecification:
         StreamViewType: NEW_IMAGE
-      TableName: "OnlineShop"
+      TableName: "ProductTable"
 
+##########################################################################
+#   Lambda FUNCTIONS for Product Management                              #
+##########################################################################
   CreateProductLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -161,3 +167,114 @@ Resources:
                 - dynamodb:DeleteItem
               Effect: Allow
               Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
+
+  CreateProductImagesLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: create-product-images.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products/images
+            Method: POST
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:PutItem
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
+
+  CreateCategoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: create-category.handler
+      Runtime: nodejs20.x
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /products/category
+            Method: POST
+      Policies:
+        - "Version": "2012-10-17"
+          Statement:
+            - Action:
+                - dynamodb:PutItem
+              Effect: Allow
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
+
+##########################################################################
+#   STEP FUNCTION                                                        #
+##########################################################################
+  StateMachineExpressSync:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: src/stateMachine.asl.json
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - "cloudwatch:*"
+                - "logs:*"
+              Resource: "*"
+      Type: EXPRESS
+      Logging:
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+        IncludeExecutionData: false
+        Level: 'ALL'
+
+  StateMachineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join [ "/", [ "stepfunctions", StateMachineExpressSync]]
+
+##########################################################################
+#   HTTP API                                                             #
+##########################################################################
+  HttpApiSF:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefinitionBody:
+        'Fn::Transform':
+          Name: 'AWS::Include'
+          Parameters:
+            Location: 'create-product-sf.yaml'
+##########################################################################
+#   Roles                                                               #
+##########################################################################
+  HttpApiRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: AllowSFNExec
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: "states:StartSyncExecution"
+                Resource: !GetAtt StateMachineExpressSync.Arn
+
+##########################################################################
+#   Outputs                                                              #
+##########################################################################
+Outputs:
+  CreateProductSFApi:
+    Description: "Sync WF API endpoint"
+    Value: !Sub "https://${HttpApiSF}.execute-api.${AWS::Region}.amazonaws.com"

@@ -34,14 +34,18 @@ export async function handler(event) {
           TableName: tableName,
           Item: {
             PK: 'PRODUCT#' + requestJSON.id,
-            SK: requestJSON.name,
+            SK: 'IMAGE#' + requestJSON.name,
             name: requestJSON.name,
-            description: requestJSON.description
+            altText: requestJSON.altText,
+            url: requestJSON.url,
+            type: requestJSON.type
           },
         })
     );
 
     subSegment.close();
+
+    body = `Put item ${requestJSON.id}`;
   } catch (err) {
     statusCode = 400;
     body = err.message;
