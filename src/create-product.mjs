@@ -8,20 +8,20 @@ import {
 
 const client = new DynamoDBClient({});
 const dynamo = DynamoDBDocumentClient.from(client);
-const tableName = "OnlineShop";
+const tableName = "ProductTable";
 
 awsXRay.captureAWS(aws);
 
-export async function handler(event) {
-  console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
+export async function handler(product) {
+  console.log('Received Step Functions event:', JSON.stringify(product, null, 2));
 
   let statusCode = 200;
-  let productId;
+  let body;
   try {
-    const { product, image } = JSON.parse(event);
-    console.log('Received product data:', product);
 
-    productId = product.id;
+    body = {
+      productId: product.id
+    };
 
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('PutEventInDynamoDb');
@@ -40,15 +40,16 @@ export async function handler(event) {
           },
         })
     );
-
+    console.log("Product saved");
     subSegment.close();
   } catch (err) {
-    statusCode = 400;
+    console.log(err.message);
+    statusCode = 500;
   }
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST"
   };
-  return {statusCode, productId, headers};
+  return {statusCode, body, headers};
 }

@@ -8,7 +8,7 @@ import {
 
 const client = new DynamoDBClient({});
 const dynamo = DynamoDBDocumentClient.from(client);
-const tableName = "OnlineShop";
+const tableName = "ProductTable";
 
 awsXRay.captureAWS(aws);
 

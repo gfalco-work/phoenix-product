@@ -4,7 +4,7 @@
   "States": {
     "Parallel": {
       "Type": "Parallel",
-      "Next": "Update Product Images",
+      "Next": "Merge Input",
       "Branches": [
         {
           "StartAt": "Create Product Details",
@@ -13,7 +13,8 @@
               "Type": "Task",
               "Resource": "arn:aws:lambda:eu-west-2:730335265680:function:product-api-CreateProductLambdaFunction-eU2sFB6JUDs9:$LATEST",
               "InputPath": "$.input.product",
-              "ResultPath": "$.productId",
+              "ResultPath": "$.body",
+              "OutputPath": "$.body",
               "Retry": [
                 {
                   "ErrorEquals": [
@@ -38,8 +39,9 @@
             "Resize Images": {
               "Type": "Task",
               "Resource": "arn:aws:lambda:eu-west-2:730335265680:function:media-api-ResizeImageLambdaFunction-TO5UMG59XQLW:$LATEST",
-              "OutputPath": "$.resizedImageNames",
               "InputPath": "$.input.image",
+              "ResultPath": "$.body",
+              "OutputPath": "$.body",
               "Retry": [
                 {
                   "ErrorEquals": [
@@ -59,6 +61,15 @@
           }
         }
       ]
+    },
+    "Merge Input": {
+      "Type": "Pass",
+      "Next": "Update Product Images",
+      "Parameters": {
+        "productId.$": "$[0].body.productId",
+        "productImage.$": "$[1].body.image",
+        "otherProductImages.$": "$[1].body.resizedImages"
+      }
     },
     "Update Product Images": {
       "Type": "Task",

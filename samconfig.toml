@@ -20,7 +20,7 @@ resolve_s3 = true
 s3_prefix = "product-api"
 region = "eu-west-2"
 image_repositories = []
-parameter_overrides = "ItemsTable=\"OnlineShop\""
+parameter_overrides = "ItemsTable=\"ProductTable\""
 
 [default.package.parameters]
 resolve_s3 = true

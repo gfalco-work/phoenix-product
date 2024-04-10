@@ -8,24 +8,23 @@ import {
 
 const client = new DynamoDBClient({});
 const dynamo = DynamoDBDocumentClient.from(client);
-const tableName = "OnlineShop";
+const tableName = "ProductTable";
 
 awsXRay.captureAWS(aws);
 
 export async function handler(event) {
   console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
 
-  const { productId, productImage, resizedImageUrls } = event.Input;
+  const { productId, productImage, otherProductImages } = event;
 
   let body;
   let statusCode = 200;
   try {
-    let requestJSON = JSON.parse(event.body);
-
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('PutEventInDynamoDb');
-    subSegment.addAnnotation('product id', requestJSON.id);
-    subSegment.addMetadata('product', requestJSON);
+
+    subSegment.addAnnotation('product id', productId);
+    subSegment.addMetadata('product', event);
 
     body = await dynamo.send(
         new PutCommand({
@@ -33,7 +32,7 @@ export async function handler(event) {
           Item: {
             PK: 'PRODUCT#' + productId,
             SK: productImage,
-            imageUrls: resizedImageUrls
+            images: otherProductImages
           },
         })
     );
