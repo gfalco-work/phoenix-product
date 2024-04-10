@@ -13,14 +13,12 @@ const tableName = "OnlineShop";
 awsXRay.captureAWS(aws);
 
 export async function handler(event) {
+  console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
+
+  const { productId, productImage, resizedImageUrls } = event.Input;
 
   let body;
   let statusCode = 200;
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST"
-  };
   try {
     let requestJSON = JSON.parse(event.body);
 
@@ -33,25 +31,21 @@ export async function handler(event) {
         new PutCommand({
           TableName: tableName,
           Item: {
-            PK: 'PRODUCT#' + requestJSON.id,
-            SK: 'IMAGE#' + requestJSON.name,
-            name: requestJSON.name,
-            altText: requestJSON.altText,
-            url: requestJSON.url,
-            type: requestJSON.type
+            PK: 'PRODUCT#' + productId,
+            SK: productImage,
+            imageUrls: resizedImageUrls
           },
         })
     );
-
     subSegment.close();
-
-    body = `Put item ${requestJSON.id}`;
   } catch (err) {
     statusCode = 400;
     body = err.message;
-  } finally {
-    body = JSON.stringify(body);
   }
-
+  const headers = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST"
+  };
   return {statusCode, body, headers};
 }

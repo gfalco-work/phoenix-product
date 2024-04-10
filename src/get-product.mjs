@@ -15,11 +15,7 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   let body;
   let statusCode = 200;
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET"
-  };
+
   try {
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('GetEventInDynamoDb');
@@ -42,6 +38,10 @@ export async function handler(event) {
   } finally {
     body = JSON.stringify(body);
   }
-
+  const headers = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET"
+  };
   return {statusCode, body, headers};
 }

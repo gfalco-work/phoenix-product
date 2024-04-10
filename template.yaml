@@ -12,10 +12,9 @@ Globals:
   Api:
     TracingEnabled: true
     Cors:
-      AllowMethods: "'POST, GET, DELETE'"
+      AllowMethods: "'POST, GET, OPTIONS, DELETE'"
       AllowHeaders: "'Content-Type'"
       AllowOrigin: "'*'"
-      MaxAge: "'86400'"
 
 Resources:
   ##########################################################################
@@ -215,66 +214,35 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       DefinitionUri: src/stateMachine.asl.json
-      Policies:
-        - Version: "2012-10-17"
-          Statement:
-            - Effect: Allow
-              Action:
-                - "cloudwatch:*"
-                - "logs:*"
-              Resource: "*"
+      DefinitionSubstitutions:
+        CreateProductLambdaFunctionArn: !GetAtt CreateProductLambdaFunction.Arn
+        CreateProductImagesLambdaFunctionArn: !GetAtt CreateProductImagesLambdaFunction.Arn
+        ResizeImageLambdaFunctionArn: !ImportValue ResizeImageLambdaFunctionArn
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /products/create
+      Tracing:
+        Enabled: True
       Type: EXPRESS
+      Policies:
+        - CloudWatchLogsFullAccess
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CreateProductLambdaFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CreateProductImagesLambdaFunction
+        - LambdaInvokePolicy:
+            FunctionName: !ImportValue ResizeImageLambdaFunction
       Logging:
         Destinations:
           - CloudWatchLogsLogGroup:
               LogGroupArn: !GetAtt StateMachineLogGroup.Arn
-        IncludeExecutionData: false
-        Level: 'ALL'
+        IncludeExecutionData: true
+        Level: ALL
 
   StateMachineLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Join [ "/", [ "stepfunctions", StateMachineExpressSync]]
-
-##########################################################################
-#   HTTP API                                                             #
-##########################################################################
-  HttpApiSF:
-    Type: AWS::Serverless::HttpApi
-    Properties:
-      DefinitionBody:
-        'Fn::Transform':
-          Name: 'AWS::Include'
-          Parameters:
-            Location: 'create-product-sf.yaml'
-##########################################################################
-#   Roles                                                               #
-##########################################################################
-  HttpApiRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - apigateway.amazonaws.com
-            Action:
-              - 'sts:AssumeRole'
-      Policies:
-        - PolicyName: AllowSFNExec
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action: "states:StartSyncExecution"
-                Resource: !GetAtt StateMachineExpressSync.Arn
-
-##########################################################################
-#   Outputs                                                              #
-##########################################################################
-Outputs:
-  CreateProductSFApi:
-    Description: "Sync WF API endpoint"
-    Value: !Sub "https://${HttpApiSF}.execute-api.${AWS::Region}.amazonaws.com"
