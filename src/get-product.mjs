@@ -39,9 +39,9 @@ export async function handler(event) {
     body = JSON.stringify(body);
   }
   const headers = {
-    "Content-Type": "application/json",
+    "Access-Control-Allow-Headers" : "Content-Type",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET"
+    "Access-Control-Allow-Methods": "OPTIONS,GET"
   };
   return {statusCode, body, headers};
 }

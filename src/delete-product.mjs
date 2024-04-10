@@ -15,11 +15,7 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   let body;
   let statusCode = 200;
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "DELETE"
-  };
+
   try {
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('DeleteEventInDynamoDb');
@@ -42,6 +38,10 @@ export async function handler(event) {
   } finally {
     body = JSON.stringify(body);
   }
-
+  const headers = {
+    "Access-Control-Allow-Headers" : "Content-Type",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "OPTIONS,DELETE"
+  };
   return {statusCode, body, headers};
 }

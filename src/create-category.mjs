@@ -16,11 +16,7 @@ export async function handler(event) {
 
   let body;
   let statusCode = 200;
-  const headers = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST"
-  };
+
   try {
     let requestJSON = JSON.parse(event.body);
 
@@ -50,6 +46,10 @@ export async function handler(event) {
   } finally {
     body = JSON.stringify(body);
   }
-
+  const headers = {
+    "Access-Control-Allow-Headers" : "Content-Type",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "OPTIONS,POST"
+  };
   return {statusCode, body, headers};
 }
