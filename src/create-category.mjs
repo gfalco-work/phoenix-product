@@ -18,28 +18,37 @@ export async function handler(event) {
   let statusCode = 200;
 
   try {
-    let requestJSON = JSON.parse(event.body);
+    const { category, images } = event;
 
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('PutEventInDynamoDb');
-    subSegment.addAnnotation('product id', requestJSON.id);
-    subSegment.addMetadata('product', requestJSON);
+    subSegment.addAnnotation('category id', category.id);
+    subSegment.addMetadata('category', category);
 
     body = await dynamo.send(
         new PutCommand({
           TableName: tableName,
           Item: {
-            PK: 'CATEGORY#' + requestJSON.id,
-            SK: requestJSON.name,
-            name: requestJSON.name,
-            description: requestJSON.description
+            PK: 'CATEGORY#' + category.id,
+            SK: category.name,
+            name: category.name,
+            description: category.description
+          },
+        })
+    );
+
+    body = await dynamo.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            PK: 'CATEGORY#' + category.id,
+            SK: category,
+            images: images
           },
         })
     );
 
     subSegment.close();
-
-    body = `Put item ${requestJSON.id}`;
   } catch (err) {
     statusCode = 400;
     body = err.message;

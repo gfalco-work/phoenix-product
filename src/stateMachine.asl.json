@@ -67,13 +67,12 @@
       "Next": "Update Product Images",
       "Parameters": {
         "productId.$": "$[0].body.productId",
-        "productImage.$": "$[1].body.image",
-        "otherProductImages.$": "$[1].body.resizedImages"
+        "productImages.$": "$[1].body.resizedImages"
       }
     },
     "Update Product Images": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:eu-west-2:730335265680:function:product-api-CreateProductImagesLambdaFunction-bRp7TOGbuNWC:$LATEST",
+      "Resource": "arn:aws:lambda:eu-west-2:730335265680:function:product-api-AddProductImagesLambdaFunction-Tzu4XaX8K2mw:$LATEST",
       "Retry": [
         {
           "ErrorEquals": [

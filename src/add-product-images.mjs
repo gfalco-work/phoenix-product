@@ -3,7 +3,7 @@ import awsXRay from 'aws-xray-sdk';
 import {DynamoDBClient} from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
-  PutCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
@@ -15,7 +15,7 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
 
-  const { productId, productImage, otherProductImages } = event;
+  const { productId, productImages } = event;
 
   let body;
   let statusCode = 200;
@@ -26,16 +26,24 @@ export async function handler(event) {
     subSegment.addAnnotation('product id', productId);
     subSegment.addMetadata('product', event);
 
-    body = await dynamo.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: {
-            PK: 'PRODUCT#' + productId,
-            SK: productImage,
-            images: otherProductImages
-          },
-        })
-    );
+    const command = new UpdateCommand({
+      TableName: tableName,
+      Key: {
+        PK: 'PRODUCT#' + productId,
+      },
+      UpdateExpression:
+          'set #productImages = :productImages',
+      ExpressionAttributeNames: {
+        '#productImages': 'ProductImages'
+      },
+      ExpressionAttributeValues: {
+        ":productImages": productImages
+      },
+      ReturnValues: "ALL_NEW"
+    });
+
+    body = await dynamo.send(command);
+    console.log(body);
     subSegment.close();
   } catch (err) {
     statusCode = 400;

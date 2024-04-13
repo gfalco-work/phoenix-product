@@ -12,8 +12,8 @@ Globals:
   Api:
     TracingEnabled: true
     Cors:
-      AllowMethods: "'POST, GET, OPTIONS, DELETE'"
-      AllowHeaders: "'Content-Type'"
+      AllowMethods: "'POST, GET, OPTIONS, DELETE, PUT'"
+      AllowHeaders: "'*'"
       AllowOrigin: "'*'"
 
 Resources:
@@ -167,11 +167,11 @@ Resources:
               Effect: Allow
               Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
 
-  CreateProductImagesLambdaFunction:
+  AddProductImagesLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src
-      Handler: create-product-images.handler
+      Handler: add-product-images.handler
       Runtime: nodejs20.x
       Events:
         Api:
@@ -183,7 +183,7 @@ Resources:
         - "Version": "2012-10-17"
           Statement:
             - Action:
-                - dynamodb:PutItem
+                - dynamodb:UpdateItem
               Effect: Allow
               Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProductTable}
 
@@ -216,7 +216,7 @@ Resources:
       DefinitionUri: src/stateMachine.asl.json
       DefinitionSubstitutions:
         CreateProductLambdaFunctionArn: !GetAtt CreateProductLambdaFunction.Arn
-        CreateProductImagesLambdaFunctionArn: !GetAtt CreateProductImagesLambdaFunction.Arn
+        AddProductImagesLambdaFunctionArn: !GetAtt AddProductImagesLambdaFunction.Arn
         ResizeImageLambdaFunctionArn: !ImportValue ResizeImageLambdaFunctionArn
       Events:
         Api:
@@ -232,7 +232,7 @@ Resources:
         - LambdaInvokePolicy:
             FunctionName: !Ref CreateProductLambdaFunction
         - LambdaInvokePolicy:
-            FunctionName: !Ref CreateProductImagesLambdaFunction
+            FunctionName: !Ref AddProductImagesLambdaFunction
         - LambdaInvokePolicy:
             FunctionName: !ImportValue ResizeImageLambdaFunction
       Logging:
