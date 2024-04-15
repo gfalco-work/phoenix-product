@@ -20,7 +20,8 @@ export async function handler(product) {
   try {
 
     body = {
-      productId: product.id
+      productId: product.id,
+      category: product.category
     };
 
     const segment = awsXRay.getSegment();
@@ -33,7 +34,7 @@ export async function handler(product) {
           TableName: tableName,
           Item: {
             PK: 'PRODUCT#' + product.id,
-            SK: product.category,
+            SK: 'CATEGORY#' + product.category,
             name: product.name,
             description: product.description,
             price: product.price

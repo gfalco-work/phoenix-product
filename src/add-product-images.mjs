@@ -15,7 +15,7 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
 
-  const { productId, productImages } = event;
+  const { productId, category, images } = event;
 
   let body;
   let statusCode = 200;
@@ -30,14 +30,15 @@ export async function handler(event) {
       TableName: tableName,
       Key: {
         PK: 'PRODUCT#' + productId,
+        SK: 'CATEGORY#' + category
       },
       UpdateExpression:
-          'set #productImages = :productImages',
+          'set #images = :images',
       ExpressionAttributeNames: {
-        '#productImages': 'ProductImages'
+        '#images': 'images'
       },
       ExpressionAttributeValues: {
-        ":productImages": productImages
+        ":images": images
       },
       ReturnValues: "ALL_NEW"
     });
