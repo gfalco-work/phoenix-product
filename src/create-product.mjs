@@ -37,6 +37,7 @@ export async function handler(product) {
             SK: 'PRODUCT#' + product.id,
             name: product.name,
             description: product.description,
+            category: product.category,
             price: product.price,
             'GS1-PK': 'CATEGORY#' + product.category,
             'GS1-SK': 'PRODUCT#' + product.id

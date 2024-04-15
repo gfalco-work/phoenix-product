@@ -13,7 +13,7 @@ const tableName = "ProductTable";
 awsXRay.captureAWS(aws);
 
 export async function handler(event) {
-  const { productId } = event.pathParameters;
+  const productId = event.pathParameters.id
 
   let body;
   let statusCode = 200;
@@ -28,7 +28,7 @@ export async function handler(event) {
           TableName: tableName,
           Key: {
             PK: 'PRODUCT#' + productId,
-            SK: 'CATEGORY#' + category
+            SK: 'PRODUCT#' + productId
           }
         })
     );
