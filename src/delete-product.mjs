@@ -15,23 +15,26 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   let body;
   let statusCode = 200;
+  const { productId, category } = event.pathParameters;
 
   try {
+
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('DeleteEventInDynamoDb');
-    subSegment.addAnnotation('product id', event.pathParameters.id);
+    subSegment.addAnnotation('product id', productId);
 
     body = await dynamo.send(
         new DeleteCommand({
           TableName: tableName,
           Key: {
-            id: event.pathParameters.id,
-          },
+            PK: 'PRODUCT#' + productId,
+            SK: 'CATEGORY#' + category
+          }
         })
     );
 
     subSegment.close();
-    body = `Deleted item ${event.pathParameters.id}`;
+    body = `Deleted item ` + productId;
   } catch (err) {
     statusCode = 400;
     body = err.message;

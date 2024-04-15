@@ -34,10 +34,12 @@ export async function handler(product) {
           TableName: tableName,
           Item: {
             PK: 'PRODUCT#' + product.id,
-            SK: 'CATEGORY#' + product.category,
+            SK: 'PRODUCT#' + product.id,
             name: product.name,
             description: product.description,
-            price: product.price
+            price: product.price,
+            'GS1-PK': 'CATEGORY#' + product.category,
+            'GS1-SK': 'PRODUCT#' + product.id
           },
         })
     );

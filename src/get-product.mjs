@@ -13,20 +13,23 @@ const tableName = "ProductTable";
 awsXRay.captureAWS(aws);
 
 export async function handler(event) {
+  const { productId } = event.pathParameters;
+
   let body;
   let statusCode = 200;
 
   try {
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('GetEventInDynamoDb');
-    subSegment.addAnnotation('product id', event.pathParameters.id);
+    subSegment.addAnnotation('product id', productId);
 
     body = await dynamo.send(
         new GetCommand({
           TableName: tableName,
           Key: {
-            id: 'PRODUCT#' + event.pathParameters.id,
-          },
+            PK: 'PRODUCT#' + productId,
+            SK: 'CATEGORY#' + category
+          }
         })
     );
 

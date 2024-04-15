@@ -22,27 +22,16 @@ export async function handler(event) {
 
     const segment = awsXRay.getSegment();
     const subSegment = segment.addNewSubsegment('PutEventInDynamoDb');
-    subSegment.addAnnotation('category id', category.id);
+    subSegment.addAnnotation('category', category.name.toLowerCase());
     subSegment.addMetadata('category', category);
 
     body = await dynamo.send(
         new PutCommand({
           TableName: tableName,
           Item: {
-            PK: 'CATEGORY#' + category.id,
-            SK: category.name,
+            PK: 'CATEGORY#' + category.name.toLowerCase(),
             name: category.name,
-            description: category.description
-          },
-        })
-    );
-
-    body = await dynamo.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: {
-            PK: 'CATEGORY#' + category.id,
-            SK: category,
+            description: category.description,
             images: images
           },
         })

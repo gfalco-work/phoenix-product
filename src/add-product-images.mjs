@@ -15,7 +15,7 @@ awsXRay.captureAWS(aws);
 export async function handler(event) {
   console.log('Received Step Functions event:', JSON.stringify(event, null, 2));
 
-  const { productId, category, images } = event;
+  const { productId, images } = event;
 
   let body;
   let statusCode = 200;
@@ -30,7 +30,7 @@ export async function handler(event) {
       TableName: tableName,
       Key: {
         PK: 'PRODUCT#' + productId,
-        SK: 'CATEGORY#' + category
+        SK: 'PRODUCT#' + productId
       },
       UpdateExpression:
           'set #images = :images',
@@ -40,7 +40,7 @@ export async function handler(event) {
       ExpressionAttributeValues: {
         ":images": images
       },
-      ReturnValues: "ALL_NEW"
+      ReturnValues: "NONE"
     });
 
     body = await dynamo.send(command);

@@ -67,7 +67,6 @@
       "Next": "Update Product Images",
       "Parameters": {
         "productId.$": "$[0].body.productId",
-        "category.$": "$[0].body.category",
         "images.$": "$[1].body.resizedImages"
       }
     },
