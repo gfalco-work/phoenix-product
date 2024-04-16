@@ -35,12 +35,14 @@ export async function handler(event) {
 
     subSegment.close();
     body = body.Item;
+
   } catch (err) {
     statusCode = 400;
     body = err.message;
   } finally {
     body = JSON.stringify(body);
   }
+  console.log(body);
   const headers = {
     "Access-Control-Allow-Headers" : "Content-Type",
     "Access-Control-Allow-Origin": "*",
