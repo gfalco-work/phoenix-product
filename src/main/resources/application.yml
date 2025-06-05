@@ -1,0 +1,54 @@
+server:
+  port: 8300
+
+spring:
+  application:
+    name: phoenix-product-command
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8555
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,loggers
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+    enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  otlp:
+    logging:
+      endpoint: http://localhost:4318/v1/logs
+      export:
+        enabled: true
+      timeout: 10s
+    metrics:
+      export:
+        enabled: true
+        url: http://localhost:4318/v1/metrics
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+      export:
+        enabled: true
+      timeout: 10s
+
+otel:
+  resource:
+    attributes:
+      service.name: ${spring.application.name}
+      service.namespace: phoenix
+      deployment.environment: local

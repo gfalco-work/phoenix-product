@@ -1,0 +1,19 @@
+otel:
+  exporter:
+    otlp:
+      endpoint: http://prod-otel-collector:4318/v1/traces
+      metrics:
+        endpoint: http://prod-otel-collector:8888/v1/metrics
+  traces:
+    sampler:
+      arg: 0.1
+  resource:
+    attributes:
+      deployment.environment: prod
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://auth-server.prod.svc.cluster.local:8555

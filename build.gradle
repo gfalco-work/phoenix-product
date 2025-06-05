@@ -1,0 +1,47 @@
+plugins {
+    id 'application'
+    id 'org.springframework.boot' version '3.5.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.google.cloud.tools.jib' version '3.4.5'
+    id 'org.jetbrains.kotlin.jvm' version '2.1.21'
+    id 'org.jetbrains.kotlin.plugin.spring' version '2.1.21'
+}
+
+version = "0.1.0"
+group = "com.phoenix.product.command"
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/gfalco-work/phoenix-observability")
+        credentials {
+            username = System.getenv("GITHUB_USERNAME")
+            password = System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
+    implementation 'com.phoenix:phoenix-observability:1.2.0'
+
+    // Kotlin essentials
+    implementation 'org.jetbrains.kotlin:kotlin-reflect'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+
+    // For coroutines with WebFlux
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-reactor'
+}
+
+application {
+    mainClass = "com.phoenix.product.command.ApplicationKt"
+}

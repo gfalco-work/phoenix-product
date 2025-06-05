@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Include your library's logging configuration -->
+    <include resource="logback-loki.xml"/>
+    <logger name="com.phoenix.product.command" level="DEBUG" />
+
+</configuration>
