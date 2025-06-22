@@ -9,6 +9,19 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8555
+  data:
+    mongodb:
+      uri: mongodb://admin:admin@localhost:27017/productdb
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
 
 management:
   endpoints:
@@ -52,3 +65,69 @@ otel:
       service.name: ${spring.application.name}
       service.namespace: phoenix
       deployment.environment: local
+
+# Phoenix Events Configuration
+phoenix:
+  events:
+    enabled: true
+    topics:
+      product-events: product-events
+    kafka:
+      bootstrap-servers: localhost:9092
+      schema-registry:
+        url: http://localhost:8081
+        connection-timeout-ms: 30000
+        read-timeout-ms: 30000
+        max-cache-size: 100
+        authentication:
+          username:
+          password:
+          bearer-token:
+        # Add credentials if needed
+        # username: schema-registry-user
+        # password: schema-registry-password
+      producer:
+        acks: all
+        retries: 3
+        batch-size: 16384
+        buffer-memory: 33554432
+        linger-ms: PT5S
+        delivery-timeout-ms: PT30S
+        request-timeout-ms: PT5S
+        compression-type: gzip
+        max-inflight-requests-per-connection: 5
+        enable-idempotence: true
+        additional-properties: {}
+      consumer:
+        group-id: phoenix-product-command-consumer
+        auto-offset-reset: earliest
+        enable-auto-commit: true
+        auto-commit-interval: PT5S
+        session-timeout: PT30S
+        heartbeat-interval: PT3S
+        max-poll-records: 500
+        max-poll-interval: PT5M
+        additional-properties: {}
+      cloud-events:
+        default-content-type: application/avro
+        default-source: com.phoenix.events
+        default-spec-version: "1.0"
+        include-tracing: true
+        validate-events: true
+      retry:
+        max-attempts: 3
+        initial-interval: PT1S
+        multiplier: 2.0
+        max-interval: PT30S
+        randomization-factor: true
+
+  # Outbox Configuration
+  outbox:
+    enabled: true
+    processing:
+      interval: 10000  # 10 seconds
+      batch-size: 100
+      max-retry-count: 3
+    cleanup:
+      enabled: true
+      retention-days: 7

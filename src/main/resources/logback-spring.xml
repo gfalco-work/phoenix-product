@@ -3,5 +3,6 @@
     <!-- Include your library's logging configuration -->
     <include resource="logback-loki.xml"/>
     <logger name="com.phoenix.product.command" level="DEBUG" />
-
+    <logger name="org.springframework.data.mongodb" level="DEBUG" />
+    <logger name="org.springframework.kafka" level="DEBUG"/>
 </configuration>
