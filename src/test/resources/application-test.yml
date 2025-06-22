@@ -1,0 +1,12 @@
+management:
+  # Disable OTLP (OpenTelemetry) exports
+  otlp:
+    logging:
+      export:
+        enabled: false
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      export:
+        enabled: false

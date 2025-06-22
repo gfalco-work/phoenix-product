@@ -51,8 +51,8 @@ dependencies {
     implementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
 
     // Phoenix libs
-    implementation 'com.phoenix.events:common:1.0.0'
-    implementation 'com.phoenix.events:product-events:1.0.0'
+    implementation 'com.phoenix.events:common:1.1.0'
+    implementation 'com.phoenix.events:product-events:1.1.0'
     implementation 'com.phoenix:phoenix-observability:1.2.0'
 
     // Kotlin essentials

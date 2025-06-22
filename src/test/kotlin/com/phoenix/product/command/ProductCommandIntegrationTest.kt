@@ -7,7 +7,13 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
+import org.springframework.security.config.web.server.ServerHttpSecurity
+import org.springframework.security.web.server.SecurityWebFilterChain
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
@@ -122,6 +128,20 @@ class ProductCommandIntegrationTest {
             .bodyValue(invalidRequest)
             .exchange()
             .expectStatus().isBadRequest
+    }
+
+    @TestConfiguration
+    @EnableWebFluxSecurity
+    class TestSecurityConfig {
+
+        @Bean
+        @Primary
+        fun springSecurityFilterChain(http: ServerHttpSecurity): SecurityWebFilterChain {
+            return http
+                .authorizeExchange { exchanges -> exchanges.anyExchange().permitAll() }
+                .csrf { it.disable() }
+                .build()
+        }
     }
 
     companion object {

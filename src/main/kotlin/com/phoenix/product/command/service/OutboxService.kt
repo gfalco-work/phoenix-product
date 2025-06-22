@@ -51,11 +51,13 @@ class OutboxService(
                 .setSpecifications(product.specifications ?: emptyMap())
                 .setTags(product.tags ?: emptyList())
                 .setVersion(product.version)
-                .setMetadata(createEventMetadata("ProductCreated"))
+                .setMetadata(createEventMetadata())
                 .build()
 
-            // Create CloudEvent
-            val cloudEvent = CloudEventWrapper.wrapProductCreatedEvent(
+            // Create CloudEvent using generic wrapper
+            val cloudEvent = CloudEventWrapper.wrapEvent(
+                "com.phoenix.events.product.created",
+                "/products",
                 eventData,
                 eventData.metadata
             )
@@ -76,7 +78,7 @@ class OutboxService(
      */
     fun publishProductUpdatedEvent(product: Product) {
         try {
-            // Create Avro event data - fix BigDecimal conversion
+            // Create Avro event data
             val eventData = ProductUpdatedEventData.newBuilder()
                 .setProductId(product.id)
                 .setName(product.name)
@@ -88,11 +90,13 @@ class OutboxService(
                 .setSpecifications(product.specifications ?: emptyMap())
                 .setTags(product.tags ?: emptyList())
                 .setVersion(product.version)
-                .setMetadata(createEventMetadata("ProductUpdated"))
+                .setMetadata(createEventMetadata())
                 .build()
 
-            // Create CloudEvent
-            val cloudEvent = CloudEventWrapper.wrapProductUpdatedEvent(
+            // Create CloudEvent using generic wrapper
+            val cloudEvent = CloudEventWrapper.wrapEvent(
+                "com.phoenix.events.product.updated",
+                "/products",
                 eventData,
                 eventData.metadata
             )
@@ -118,11 +122,13 @@ class OutboxService(
                 .setProductId(productId)
                 .setDeletedBy(deletedBy)
                 .setDeletionType(DeletionType.HARD_DELETE)
-                .setMetadata(createEventMetadata("ProductDeleted"))
+                .setMetadata(createEventMetadata())
                 .build()
 
-            // Create CloudEvent using the wrapper
-            val cloudEvent = CloudEventWrapper.wrapProductDeletedEvent(
+            // Create CloudEvent using generic wrapper
+            val cloudEvent = CloudEventWrapper.wrapEvent(
+                "com.phoenix.events.product.deleted",
+                "/products",
                 eventData,
                 eventData.metadata
             )
@@ -135,6 +141,37 @@ class OutboxService(
         } catch (e: Exception) {
             logger.error("Failed to create ProductDeleted event for product: {}", productId, e)
             throw RuntimeException("Failed to create ProductDeleted event", e)
+        }
+    }
+
+    /**
+     * Generic method to publish any domain event - can be used by other domains
+     */
+    fun publishDomainEvent(
+        eventType: String,
+        source: String,
+        eventData: Any,
+        aggregateId: String,
+        metadata: EventMetadata? = null
+    ) {
+        try {
+            val eventMetadata = metadata ?: createEventMetadata()
+
+            val cloudEvent = CloudEventWrapper.wrapEvent(
+                eventType,
+                source,
+                eventData,
+                eventMetadata
+            )
+
+            val simpleEventType = eventType.substringAfterLast(".")
+            storeEventInOutbox(aggregateId, simpleEventType, cloudEvent)
+
+            logger.info("{} event stored in outbox for aggregate: {}", simpleEventType, aggregateId)
+
+        } catch (e: Exception) {
+            logger.error("Failed to create {} event for aggregate {}", eventType, aggregateId, e)
+            throw RuntimeException("Failed to create $eventType event", e)
         }
     }
 
@@ -203,15 +240,12 @@ class OutboxService(
     }
 
     /**
-     * Creates event metadata with correlation tracking
+     * Creates event metadata with correlation tracking and schema version
      */
-    private fun createEventMetadata(eventType: String): EventMetadata {
+    private fun createEventMetadata(): EventMetadata {
         return EventMetadata.newBuilder()
-            .setEventId(UUID.randomUUID().toString())
-            .setTimestamp(Instant.now().toEpochMilli())
-            .setSource(applicationName)
-            .setVersion("1.0")
             .setCorrelationId(UUID.randomUUID().toString())
+            .setSchemaVersion("1.0")
             .build()
     }
 
