@@ -12,16 +12,7 @@ spring:
   data:
     mongodb:
       uri: mongodb://admin:admin@localhost:27017/productdb
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      acks: all
-      retries: 3
-      properties:
-        enable.idempotence: true
-        max.in.flight.requests.per.connection: 1
+      auto-index-creation: true   # Enable transactions for outbox pattern
 
 management:
   endpoints:
@@ -69,7 +60,6 @@ otel:
 # Phoenix Events Configuration
 phoenix:
   events:
-    enabled: true
     topics:
       product-events: product-events
     kafka:
@@ -83,9 +73,6 @@ phoenix:
           username:
           password:
           bearer-token:
-        # Add credentials if needed
-        # username: schema-registry-user
-        # password: schema-registry-password
       producer:
         acks: all
         retries: 3
@@ -98,22 +85,6 @@ phoenix:
         max-inflight-requests-per-connection: 5
         enable-idempotence: true
         additional-properties: {}
-      consumer:
-        group-id: phoenix-product-command-consumer
-        auto-offset-reset: earliest
-        enable-auto-commit: true
-        auto-commit-interval: PT5S
-        session-timeout: PT30S
-        heartbeat-interval: PT3S
-        max-poll-records: 500
-        max-poll-interval: PT5M
-        additional-properties: {}
-      cloud-events:
-        default-content-type: application/avro
-        default-source: com.phoenix.events
-        default-spec-version: "1.0"
-        include-tracing: true
-        validate-events: true
       retry:
         max-attempts: 3
         initial-interval: PT1S
@@ -123,11 +94,8 @@ phoenix:
 
   # Outbox Configuration
   outbox:
-    enabled: true
     processing:
-      interval: 10000  # 10 seconds
-      batch-size: 100
-      max-retry-count: 3
+      interval: 10000  # 10 seconds - matches @Scheduled(fixedDelay = 10000)
     cleanup:
-      enabled: true
-      retention-days: 7
+      retention-days: 7  # Matches the 7 days in OutboxEventProcessor
+      cron: "0 0 2 * * *"  # Daily at 2 AM (default)

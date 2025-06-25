@@ -2,7 +2,6 @@ package com.phoenix.product.command.service
 
 import com.phoenix.events.cloudevents.CloudEventPublisher
 import com.phoenix.events.cloudevents.CloudEventWrapper
-import com.phoenix.events.common.EventMetadata
 import com.phoenix.events.product.DeletionType
 import com.phoenix.events.product.ProductCreatedEventData
 import com.phoenix.events.product.ProductDeletedEventData
@@ -11,13 +10,11 @@ import com.phoenix.product.command.repository.OutboxRepository
 import com.phoenix.product.command.repository.model.OutboxEvent
 import com.phoenix.product.command.repository.model.Product
 import io.cloudevents.CloudEvent
-import io.cloudevents.jackson.JsonFormat
-import org.slf4j.LoggerFactory
+import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.*
 
 @Service
 @Transactional
@@ -26,7 +23,7 @@ class OutboxService(
     private val cloudEventPublisher: CloudEventPublisher
 ) {
 
-    private val logger = LoggerFactory.getLogger(OutboxService::class.java)
+    private val log = KotlinLogging.logger {}
 
     @Value("\${phoenix.events.topics.product-events:product-events}")
     private lateinit var productEventsTopic: String
@@ -45,16 +42,16 @@ class OutboxService(
                 .setName(product.name)
                 .setDescription(product.description ?: "")
                 .setCategory(product.category)
-                .setPrice(product.price.toDouble())
+                .setPrice(product.price)
                 .setBrand(product.brand ?: "")
                 .setSku(product.sku)
                 .setSpecifications(product.specifications ?: emptyMap())
                 .setTags(product.tags ?: emptyList())
                 .setVersion(product.version)
-                .setMetadata(createEventMetadata())
+                .setMetadata(CloudEventWrapper.createEventMetadata())
                 .build()
 
-            // Create CloudEvent using generic wrapper
+            // Create CloudEvent using enhanced wrapper
             val cloudEvent = CloudEventWrapper.wrapEvent(
                 "com.phoenix.events.product.created",
                 "/products",
@@ -65,10 +62,10 @@ class OutboxService(
             // Store in outbox for transactional safety
             storeEventInOutbox(product.id, "ProductCreated", cloudEvent)
 
-            logger.info("ProductCreated event stored in outbox for product: {}", product.id)
+            log.info("ProductCreated event stored in outbox for product: {}", product.id)
 
         } catch (e: Exception) {
-            logger.error("Failed to create ProductCreated event for product: {}", product.id, e)
+            log.error("Failed to create ProductCreated event for product: {}", product.id, e)
             throw RuntimeException("Failed to create ProductCreated event", e)
         }
     }
@@ -84,16 +81,16 @@ class OutboxService(
                 .setName(product.name)
                 .setDescription(product.description ?: "")
                 .setCategory(product.category)
-                .setPrice(product.price.toDouble())
+                .setPrice(product.price)
                 .setBrand(product.brand ?: "")
                 .setSku(product.sku)
                 .setSpecifications(product.specifications ?: emptyMap())
                 .setTags(product.tags ?: emptyList())
                 .setVersion(product.version)
-                .setMetadata(createEventMetadata())
+                .setMetadata(CloudEventWrapper.createEventMetadata())
                 .build()
 
-            // Create CloudEvent using generic wrapper
+            // Create CloudEvent using enhanced wrapper
             val cloudEvent = CloudEventWrapper.wrapEvent(
                 "com.phoenix.events.product.updated",
                 "/products",
@@ -104,10 +101,10 @@ class OutboxService(
             // Store in outbox for transactional safety
             storeEventInOutbox(product.id, "ProductUpdated", cloudEvent)
 
-            logger.info("ProductUpdated event stored in outbox for product: {}", product.id)
+            log.info("ProductUpdated event stored in outbox for product: {}", product.id)
 
         } catch (e: Exception) {
-            logger.error("Failed to create ProductUpdated event for product: {}", product.id, e)
+            log.error("Failed to create ProductUpdated event for product: {}", product.id, e)
             throw RuntimeException("Failed to create ProductUpdated event", e)
         }
     }
@@ -122,10 +119,10 @@ class OutboxService(
                 .setProductId(productId)
                 .setDeletedBy(deletedBy)
                 .setDeletionType(DeletionType.HARD_DELETE)
-                .setMetadata(createEventMetadata())
+                .setMetadata(CloudEventWrapper.createEventMetadata())
                 .build()
 
-            // Create CloudEvent using generic wrapper
+            // Create CloudEvent using enhanced wrapper
             val cloudEvent = CloudEventWrapper.wrapEvent(
                 "com.phoenix.events.product.deleted",
                 "/products",
@@ -136,42 +133,11 @@ class OutboxService(
             // Store in outbox for transactional safety
             storeEventInOutbox(productId, "ProductDeleted", cloudEvent)
 
-            logger.info("ProductDeleted event stored in outbox for product: {}", productId)
+            log.info("ProductDeleted event stored in outbox for product: {}", productId)
 
         } catch (e: Exception) {
-            logger.error("Failed to create ProductDeleted event for product: {}", productId, e)
+            log.error("Failed to create ProductDeleted event for product: {}", productId, e)
             throw RuntimeException("Failed to create ProductDeleted event", e)
-        }
-    }
-
-    /**
-     * Generic method to publish any domain event - can be used by other domains
-     */
-    fun publishDomainEvent(
-        eventType: String,
-        source: String,
-        eventData: Any,
-        aggregateId: String,
-        metadata: EventMetadata? = null
-    ) {
-        try {
-            val eventMetadata = metadata ?: createEventMetadata()
-
-            val cloudEvent = CloudEventWrapper.wrapEvent(
-                eventType,
-                source,
-                eventData,
-                eventMetadata
-            )
-
-            val simpleEventType = eventType.substringAfterLast(".")
-            storeEventInOutbox(aggregateId, simpleEventType, cloudEvent)
-
-            logger.info("{} event stored in outbox for aggregate: {}", simpleEventType, aggregateId)
-
-        } catch (e: Exception) {
-            logger.error("Failed to create {} event for aggregate {}", eventType, aggregateId, e)
-            throw RuntimeException("Failed to create $eventType event", e)
         }
     }
 
@@ -180,28 +146,42 @@ class OutboxService(
      * This method should be called by a scheduled job or event processor
      */
     @Transactional
-    fun processOutboxEvents() {
-        val unprocessedEvents = outboxRepository.findByProcessedFalseOrderByCreatedAtAsc()
+        fun processOutboxEvents() {
+            val unprocessedEvents = outboxRepository.findByProcessedFalseOrderByCreatedAtAsc()
 
-        logger.info("Processing {} unprocessed outbox events", unprocessedEvents.size)
+            log.info("Processing {} unprocessed outbox events", unprocessedEvents.size)
 
-        for (event in unprocessedEvents) {
-            try {
-                processOutboxEvent(event)
-            } catch (e: Exception) {
-                logger.error("Failed to process outbox event: {}", event.id, e)
-                handleEventProcessingFailure(event, e.message ?: "Unknown error")
+            for (event in unprocessedEvents) {
+                try {
+                    processOutboxEvent(event)
+                } catch (e: Exception) {
+                    log.error("Failed to process outbox event: {}", event.id, e)
+                }
             }
         }
-    }
 
     /**
      * Processes a single outbox event
      */
     private fun processOutboxEvent(outboxEvent: OutboxEvent) {
         try {
-            // Deserialize the CloudEvent from the payload
-            val cloudEvent = deserializeCloudEvent(outboxEvent.eventPayload)
+            // Validate the event payload before processing
+            if (!isValidEventPayload(outboxEvent.eventPayload)) {
+                throw IllegalArgumentException("Invalid event payload for event: ${outboxEvent.id}")
+            }
+
+            // Deserialize the CloudEvent from the payload using enhanced wrapper
+            val cloudEvent = CloudEventWrapper.deserializeCloudEvent(outboxEvent.eventPayload)
+
+            // Validate the deserialized CloudEvent
+            if (!CloudEventWrapper.isValidCloudEvent(cloudEvent)) {
+                throw IllegalArgumentException("Invalid CloudEvent structure for event: ${outboxEvent.id}")
+            }
+
+            // Log correlation ID for tracing
+            CloudEventWrapper.getCorrelationId(cloudEvent).ifPresent { correlationId ->
+                log.debug("Processing event with correlation ID: {}", correlationId)
+            }
 
             // Publish to Kafka using CloudEventPublisher
             val future = cloudEventPublisher.publishEvent(productEventsTopic, cloudEvent)
@@ -211,16 +191,16 @@ class OutboxService(
                 if (throwable == null) {
                     // Mark as processed on success
                     markEventAsProcessed(outboxEvent)
-                    logger.info("Successfully processed outbox event: {} for aggregate: {}",
+                    log.info("Successfully processed outbox event: {} for aggregate: {}",
                         outboxEvent.id, outboxEvent.aggregateId)
                 } else {
-                    logger.error("Failed to publish outbox event: {}", outboxEvent.id, throwable)
-                    handleEventProcessingFailure(outboxEvent, throwable.message ?: "Publication failed")
+                    log.error("Failed to publish outbox event: {}", outboxEvent.id, throwable)
+                    // Event remains unprocessed for potential manual review
                 }
             }
 
         } catch (e: Exception) {
-            logger.error("Failed to process outbox event: {}", outboxEvent.id, e)
+            log.error("Failed to process outbox event: {}", outboxEvent.id, e)
             throw e
         }
     }
@@ -229,80 +209,34 @@ class OutboxService(
      * Stores a CloudEvent in the outbox for transactional safety
      */
     private fun storeEventInOutbox(aggregateId: String, eventType: String, cloudEvent: CloudEvent) {
-        val outboxEvent = OutboxEvent(
-            aggregateId = aggregateId,
-            eventType = eventType,
-            eventPayload = serializeCloudEvent(cloudEvent),
-            createdAt = Instant.now()
-        )
-
-        outboxRepository.save(outboxEvent)
-    }
-
-    /**
-     * Creates event metadata with correlation tracking and schema version
-     */
-    private fun createEventMetadata(): EventMetadata {
-        return EventMetadata.newBuilder()
-            .setCorrelationId(UUID.randomUUID().toString())
-            .setSchemaVersion("1.0")
-            .build()
-    }
-
-    /**
-     * Serializes a CloudEvent to JSON string for storage using CloudEvents JSON format
-     */
-    private fun serializeCloudEvent(cloudEvent: CloudEvent): String {
         try {
-            return String(JsonFormat().serialize(cloudEvent))
+            // Validate CloudEvent before storing
+            if (!CloudEventWrapper.isValidCloudEvent(cloudEvent)) {
+                throw IllegalArgumentException("Invalid CloudEvent structure")
+            }
+
+            val serializedEvent = CloudEventWrapper.serializeCloudEvent(cloudEvent)
+
+            val outboxEvent = OutboxEvent(
+                aggregateId = aggregateId,
+                eventType = eventType,
+                eventPayload = serializedEvent,
+                createdAt = Instant.now()
+            )
+
+            outboxRepository.save(outboxEvent)
+
         } catch (e: Exception) {
-            logger.error("Failed to serialize CloudEvent: {}", cloudEvent.id, e)
-            // Fallback to manual serialization
-            return buildManualCloudEventJson(cloudEvent)
+            log.error("Failed to store event in outbox for aggregate: {}", aggregateId, e)
+            throw RuntimeException("Failed to store event in outbox", e)
         }
     }
 
     /**
-     * Manual CloudEvent JSON serialization as fallback
+     * Validates event payload before processing
      */
-    private fun buildManualCloudEventJson(cloudEvent: CloudEvent): String {
-        val extensionsJson = if (cloudEvent.extensionNames.isNotEmpty()) {
-            cloudEvent.extensionNames.joinToString(",") { name ->
-                val value = cloudEvent.getExtension(name)
-                "\"$name\":\"$value\""
-            }
-        } else {
-            ""
-        }
-
-        val dataJson = cloudEvent.data?.let {
-            "\"data\":\"${Base64.getEncoder().encodeToString(it.toBytes())}\""
-        } ?: ""
-
-        return """
-            {
-                "id": "${cloudEvent.id}",
-                "type": "${cloudEvent.type}",
-                "source": "${cloudEvent.source}",
-                "specversion": "${cloudEvent.specVersion}",
-                "time": "${cloudEvent.time}",
-                "datacontenttype": "${cloudEvent.dataContentType ?: ""}",
-                $dataJson${if (dataJson.isNotEmpty() && extensionsJson.isNotEmpty()) "," else ""}
-                $extensionsJson
-            }
-        """.trimIndent()
-    }
-
-    /**
-     * Deserializes a CloudEvent from JSON string using CloudEvents JSON format
-     */
-    private fun deserializeCloudEvent(payload: String): CloudEvent {
-        try {
-            return JsonFormat().deserialize(payload.toByteArray())
-        } catch (e: Exception) {
-            logger.error("Failed to deserialize CloudEvent from payload", e)
-            throw RuntimeException("Failed to deserialize CloudEvent", e)
-        }
+    private fun isValidEventPayload(payload: String?): Boolean {
+        return !payload.isNullOrBlank() && payload.trim().startsWith("{") && payload.trim().endsWith("}")
     }
 
     /**
@@ -316,22 +250,7 @@ class OutboxService(
             )
             outboxRepository.save(updatedEvent)
         } catch (e: Exception) {
-            logger.error("Failed to mark event as processed: {}", outboxEvent.id, e)
-        }
-    }
-
-    /**
-     * Handles event processing failures by updating retry count and error message
-     */
-    private fun handleEventProcessingFailure(outboxEvent: OutboxEvent, errorMessage: String) {
-        try {
-            val updatedEvent = outboxEvent.copy(
-                retryCount = outboxEvent.retryCount + 1,
-                errorMessage = errorMessage
-            )
-            outboxRepository.save(updatedEvent)
-        } catch (e: Exception) {
-            logger.error("Failed to update failed event: {}", outboxEvent.id, e)
+            log.error("Failed to mark event as processed: {}", outboxEvent.id, e)
         }
     }
 
@@ -342,10 +261,14 @@ class OutboxService(
     fun cleanupProcessedEvents(olderThan: Instant) {
         try {
             val eventsToDelete = outboxRepository.findByProcessedTrueAndCreatedAtBefore(olderThan)
-            outboxRepository.deleteAll(eventsToDelete)
-            logger.info("Cleaned up {} processed outbox events older than {}", eventsToDelete.size, olderThan)
+            if (eventsToDelete.isNotEmpty()) {
+                outboxRepository.deleteAll(eventsToDelete)
+                log.info("Cleaned up {} processed outbox events older than {}", eventsToDelete.size, olderThan)
+            } else {
+                log.debug("No processed events found for cleanup before {}", olderThan)
+            }
         } catch (e: Exception) {
-            logger.error("Failed to cleanup processed events", e)
+            log.error("Failed to cleanup processed events", e)
         }
     }
 }

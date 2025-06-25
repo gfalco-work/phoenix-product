@@ -1,4 +1,4 @@
-package com.phoenix.product.command
+package com.phoenix.product.command.api
 
 import com.phoenix.product.command.api.model.CreateProductRequest
 import com.phoenix.product.command.repository.OutboxRepository

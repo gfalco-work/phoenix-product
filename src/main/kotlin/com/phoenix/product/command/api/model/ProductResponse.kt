@@ -7,7 +7,7 @@ import java.time.Instant
 data class ProductResponse(
     val id: String,
     val name: String,
-    val description: String,
+    val description: String?,
     val category: String,
     val price: BigDecimal,
     val brand: String,
@@ -31,7 +31,7 @@ fun Product.toResponse() = ProductResponse(
     name = this.name,
     description = this.description,
     category = this.category,
-    price = this.price,
+    price = BigDecimal.valueOf(this.price),
     brand = this.brand,
     sku = this.sku,
     specifications = this.specifications,

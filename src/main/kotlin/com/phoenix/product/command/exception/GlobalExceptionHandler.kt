@@ -18,9 +18,9 @@ class GlobalExceptionHandler {
         )
     }
 
-    @ExceptionHandler(ProductAlreadyExistsException::class)
+    @ExceptionHandler(ProductConcurrentModificationException::class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    fun handleProductAlreadyExists(ex: ProductAlreadyExistsException): ErrorResponse {
+    fun handleProductAlreadyExists(ex: ProductConcurrentModificationException): ErrorResponse {
         return ErrorResponse(
             error = "PRODUCT_ALREADY_EXISTS",
             message = ex.message ?: "Product already exists"
