@@ -1,4 +1,4 @@
-package com.phoenix.product.command.exception
+package com.phoenix.product.exception
 
 class ProductConcurrentModificationException(message: String) : RuntimeException(message)
 

@@ -1,8 +1,12 @@
-package com.phoenix.product.command.api.model
+package com.phoenix.product.api.model
 
-import com.phoenix.product.command.repository.model.Product
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import com.phoenix.product.repository.model.Product
 import java.math.BigDecimal
 import java.time.Instant
+
+private val objectMapper = jacksonObjectMapper()
 
 data class ProductResponse(
     val id: String,
@@ -27,15 +31,19 @@ data class ErrorResponse(
 
 // Extension function to convert Product to ProductResponse
 fun Product.toResponse() = ProductResponse(
-    id = this.id,
+    id = this.id.toString(),
     name = this.name,
     description = this.description,
     category = this.category,
     price = BigDecimal.valueOf(this.price),
     brand = this.brand,
     sku = this.sku,
-    specifications = this.specifications,
-    tags = this.tags,
+    specifications = this.specifications?.let {
+        objectMapper.readValue<Map<String, String>>(it)
+    },
+    tags = this.tags?.let {
+        objectMapper.readValue<List<String>>(it)
+    },
     createdBy = this.createdBy,
     createdAt = this.createdAt
 )

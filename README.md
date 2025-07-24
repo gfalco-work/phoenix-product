@@ -1,38 +1,52 @@
-# Phoenix Product Command Service
+# Phoenix Product Service
 
-A CQRS-based microservice for product management built with Kotlin, Spring Boot, MongoDB, and Kafka.
+A reactive microservice for product management built with Kotlin, Spring Boot WebFlux, PostgreSQL, and Kafka.
 
 ## Features
 
-- ✅ **CRUD Operations**: Create, Read, Update, Delete products
-- ✅ **CQRS Pattern**: Command-side implementation with event publishing
-- ✅ **Outbox Pattern**: Reliable event publishing with transactional guarantees
-- ✅ **Event Sourcing**: Events published to Kafka for projection services
-- ✅ **Validation**: Input validation with Jakarta Bean Validation
-- ✅ **Exception Handling**: Global exception handling with proper error responses
-- ✅ **Observability**: OpenTelemetry integration for metrics, traces, and logs
-- ✅ **Security**: OAuth2 JWT resource server configuration
-- ✅ **Testing**: Integration tests with Testcontainers
+- ✅ CRUD Operations: Create, Read, Update, Delete products
+- ✅ GraphQL API: Flexible querying with data aggregation from other services
+- ✅ Reactive Programming: Built with Spring WebFlux and Kotlin Coroutines
+- ✅ Outbox Pattern: Reliable event publishing with transactional guarantees
+- ✅ Event Publishing: Events published to Kafka for other services
+- ✅ Validation: Input validation with Jakarta Bean Validation
+- ✅ Exception Handling: Global exception handling with proper error responses
+- ✅ Observability: OpenTelemetry integration for metrics, traces, and logs
+- ✅ Security: OAuth2 JWT resource server configuration
+- ✅ Testing: Integration tests with Testcontainers
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   REST Client   │───▶│  Command API    │───▶│   Product DB    │
-└─────────────────┘    └─────────────────┘    │   (MongoDB)     │
-                                │              └─────────────────┘
+│   Admin Web     │───▶│  REST API       │───▶│   Product DB    │
+│   (CRUD)        │    │  (CRUD)         │    │  (PostgreSQL)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
-                                ▼
+                                │
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Client App    │───▶│  GraphQL API    │───▶│   Product DB    │
+│   (PDP/Search)  │    │  (Aggregation)  │    │  (PostgreSQL)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │                       │
+                                │                       │
+                                ▼                       ▼
                        ┌─────────────────┐    ┌─────────────────┐
-                       │  Outbox Events  │───▶│     Kafka       │
-                       │   (MongoDB)     │    │   (Events)      │
-                       └─────────────────┘    └─────────────────┘
+                       │  External APIs  │    │  Outbox Events  │
+                       │ (Stock, Price,  │    │ (PostgreSQL)    │
+                       │  Promotions)    │    └─────────────────┘
+                       └─────────────────┘             │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │     Kafka       │
+                                              │   (Events)      │
+                                              └─────────────────┘
                                                        │
                                                        ▼
                                               ┌─────────────────┐
-                                              │ Projection      │
-                                              │ Services        │
-                                              │ (Query Side)    │
+                                              │ Search Service  │
+                                              │ & Other         │
+                                              │ Consumers       │
                                               └─────────────────┘
 ```
 
@@ -48,6 +62,7 @@ A CQRS-based microservice for product management built with Kotlin, Spring Boot,
 
 ```bash
 # Start all infrastructure services
+Go to phoenix-gitops to start the related docker-compose files 
 docker-compose up -d
 
 # Verify services are running
@@ -55,7 +70,7 @@ docker-compose ps
 ```
 
 This will start:
-- MongoDB (port 27017)
+- PostgreSQL (port 5432)
 - Kafka & Zookeeper (port 9092)
 - Kafka UI (port 8080)
 - Jaeger (port 16686)
@@ -152,7 +167,7 @@ curl -X DELETE http://localhost:8300/api/v1/products/{productId}
 
 The service uses the **Outbox Pattern** for reliable event publishing:
 
-1. **Transactional Write**: Product and outbox event are saved in the same MongoDB transaction
+1. **Transactional Write**: Product and outbox event are saved in the same PostgreSQL transaction
 2. **Background Publisher**: Scheduled task publishes events from outbox to Kafka
 3. **Retry Logic**: Failed events are retried with exponential backoff
 4. **Cleanup**: Old processed events are automatically cleaned up
@@ -194,90 +209,28 @@ The service uses the **Outbox Pattern** for reliable event publishing:
 ./gradlew integrationTest
 ```
 
-The integration tests use Testcontainers to spin up MongoDB and Kafka containers automatically.
-
-## Configuration
-
-### Application Properties
-Key configuration in `application.yml`:
-
-```yaml
-server:
-  port: 8300
-
-spring:
-  data:
-    mongodb:
-      uri: mongodb://admin:admin@localhost:27017/productdb
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      acks: all  # Ensures durability
-      retries: 3
-```
-
-### Security
-The service is configured as an OAuth2 Resource Server. To disable security for development:
-
-```yaml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: # comment out or remove
-```
-
-## Development
-
-### Project Structure
-```
-src/main/kotlin/com/phoenix/product/command/
-├── api/                    # REST controllers and DTOs
-├── config/                 # Configuration classes
-├── exception/              # Custom exceptions and handlers
-├── repository/             # Data access layer
-│   └── model/             # Domain entities
-└── service/               # Business logic
-```
-
-### Key Components
-
-- **ProductCommandController**: REST API endpoints
-- **ProductService**: Business logic and orchestration
-- **OutboxService**: Event publishing logic
-- **OutboxEventPublisher**: Background event publisher
-- **ProductRepository**: Product data access
-- **OutboxRepository**: Outbox event data access
+The integration tests use Testcontainers to spin up PostgreSQL and Kafka containers automatically.
 
 ## Deployment
 
 ### Docker Build
 ```bash
 # Build Docker image
-docker build -t phoenix-product-command .
+docker build -t phoenix-product .
 
 # Run with Docker
 docker run -p 8300:8300 \
-  -e SPRING_DATA_MONGODB_URI=mongodb://host.docker.internal:27017/productdb \
+  -e SPRING_R2DBC_URL=r2dbc:postgresql://host.docker.internal:5432/productdb \
   -e SPRING_KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
-  phoenix-product-command
+  phoenix-product
 ```
 
 ### Environment Variables
-- `SPRING_DATA_MONGODB_URI`: MongoDB connection string
-- `SPRING_KAFKA_BOOTSTRAP_SERVERS`: Kafka bootstrap servers
-- `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`: JWT issuer URI
-
-## Next Steps
-
-1. **Build Query Service**: Create a separate service to consume events and build read models
-2. **Add More Events**: Implement product deletion events
-3. **Schema Registry**: Use Confluent Schema Registry for better event schema management
-4. **Authentication**: Implement proper JWT authentication
-5. **API Documentation**: Add OpenAPI/Swagger documentation
-6. **Monitoring**: Add custom metrics and alerting
-7. **CI/CD**: Set up continuous integration and deployment pipelines
+- SPRING_R2DBC_URL: PostgreSQL R2DBC connection string
+- SPRING_R2DBC_USERNAME: Database username
+- SPRING_R2DBC_PASSWORD: Database password
+- SPRING_KAFKA_BOOTSTRAP_SERVERS: Kafka bootstrap servers
+- SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: JWT issuer URI
 
 ## Contributing
 
@@ -286,7 +239,4 @@ docker run -p 8300:8300 \
 3. Make your changes
 4. Add tests
 5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
+ 

@@ -1,4 +1,4 @@
-package com.phoenix.product.command.api.model
+package com.phoenix.product.api.model
 
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotBlank

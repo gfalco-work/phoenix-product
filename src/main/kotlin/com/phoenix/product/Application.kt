@@ -1,4 +1,4 @@
-package com.phoenix.product.command
+package com.phoenix.product
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication

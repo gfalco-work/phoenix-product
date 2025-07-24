@@ -1,5 +1,4 @@
-package com.phoenix.product.command.service
-
+import com.phoenix.product.service.OutboxService
 import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -36,7 +35,9 @@ class OutboxEventProcessor(
         try {
             log.debug("Starting outbox event processing")
             outboxService.processOutboxEvents()
-            log.debug("Completed outbox event processing")
+                .doOnSuccess { log.debug("Completed outbox event processing") }
+                .doOnError { e -> log.error("Error during outbox event processing", e) }
+                .subscribe()
         } catch (e: Exception) {
             log.error("Error during outbox event processing", e)
         }
@@ -51,7 +52,9 @@ class OutboxEventProcessor(
             val cutoffTime = Instant.now().minus(retentionDays, ChronoUnit.DAYS)
             log.info("Starting cleanup of processed events older than {}", cutoffTime)
             outboxService.cleanupProcessedEvents(cutoffTime)
-            log.info("Completed cleanup of old processed events")
+                .doOnSuccess { log.info("Completed cleanup of old processed events") }
+                .doOnError { e -> log.error("Error during outbox event cleanup", e) }
+                .subscribe()
         } catch (e: Exception) {
             log.error("Error during outbox event cleanup", e)
         }

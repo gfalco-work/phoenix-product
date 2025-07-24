@@ -1,12 +1,13 @@
-management:
-  # Disable OTLP (OpenTelemetry) exports
-  otlp:
-    logging:
-      export:
-        enabled: false
-    metrics:
-      export:
-        enabled: false
-    tracing:
-      export:
-        enabled: false
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ""
+          jwk-set-uri: https://idp.example.com/.well-known/jwks.json
+
+  flyway:
+    enabled: false
+  r2dbc:
+    pool:
+      enabled: false

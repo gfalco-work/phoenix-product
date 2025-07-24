@@ -3,16 +3,26 @@ server:
 
 spring:
   application:
-    name: phoenix-product-command
+    name: phoenix-product
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8555
   data:
-    mongodb:
-      uri: mongodb://admin:admin@localhost:27017/productdb
-      auto-index-creation: true   # Enable transactions for outbox pattern
+    r2dbc:
+      repositories:
+        enabled:
+          true
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/productdb
+    username: admin
+    password: password123
+  flyway:
+    url: jdbc:postgresql://localhost:5432/productdb
+    user: admin
+    password: password123
+    enabled: true
 
 management:
   endpoints:
@@ -73,6 +83,15 @@ phoenix:
           username:
           password:
           bearer-token:
+      consumer:
+        group-id: test-group
+        auto-offset-reset: earliest
+        enable-auto-commit: true
+        auto-commit-interval: 5000ms
+        session-timeout: 30000ms
+        heartbeat-interval: 3000ms
+        max-poll-records: 500
+        max-poll-interval: 300000ms
       producer:
         acks: all
         retries: 3

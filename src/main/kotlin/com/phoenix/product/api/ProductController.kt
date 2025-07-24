@@ -1,10 +1,10 @@
-package com.phoenix.product.command.api
+package com.phoenix.product.api
 
-import com.phoenix.product.command.api.model.CreateProductRequest
-import com.phoenix.product.command.api.model.ProductResponse
-import com.phoenix.product.command.api.model.UpdateProductRequest
-import com.phoenix.product.command.api.model.toResponse
-import com.phoenix.product.command.service.ProductService
+import com.phoenix.product.api.model.CreateProductRequest
+import com.phoenix.product.api.model.ProductResponse
+import com.phoenix.product.api.model.UpdateProductRequest
+import com.phoenix.product.api.model.toResponse
+import com.phoenix.product.service.ProductService
 import jakarta.validation.Valid
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
@@ -18,11 +18,12 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Mono
 
 @RestController
 @RequestMapping("/api/v1/products")
 @Validated
-class ProductCommandController(
+class ProductController(
     private val productService: ProductService
 ) {
     private val log = KotlinLogging.logger {}
@@ -31,27 +32,27 @@ class ProductCommandController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createProduct(
         @Valid @RequestBody request: CreateProductRequest
-    ): ResponseEntity<ProductResponse> {
+    ): Mono<ResponseEntity<ProductResponse>> {
         log.info("Creating a new product with name: ${request.name}")
-        val product = productService.createProduct(request)
-        return ResponseEntity.status(HttpStatus.CREATED).body(product.toResponse())
+        return productService.createProduct(request)
+            .map { product -> ResponseEntity.status(HttpStatus.CREATED).body(product.toResponse()) }
     }
 
     @PutMapping("/{id}")
     fun updateProduct(
         @PathVariable id: String,
         @Valid @RequestBody request: UpdateProductRequest
-    ): ResponseEntity<ProductResponse> {
+    ): Mono<ResponseEntity<ProductResponse>> {
         log.info("Updating product with id: $id")
-        val product = productService.updateProduct(id, request)
-        return ResponseEntity.ok(product.toResponse())
+        return productService.updateProduct(id.toLong(), request)
+            .map { product -> ResponseEntity.status(HttpStatus.OK).body(product.toResponse()) }
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteProduct(@PathVariable id: String): ResponseEntity<Void> {
+    fun deleteProduct(@PathVariable id: String): Mono<ResponseEntity<Void>> {
         log.info("Deleting product with id: $id")
-        productService.deleteProduct(id)
-        return ResponseEntity.noContent().build()
+        return productService.deleteProduct(id.toLong())
+            .thenReturn(ResponseEntity.noContent().build())
     }
 }
