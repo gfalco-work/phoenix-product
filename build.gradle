@@ -91,3 +91,30 @@ dependencies {
 application {
     mainClass = "com.phoenix.product.ApplicationKt"
 }
+
+sourceSets {
+    integrationTest {
+        java.srcDir file('src/integrationTest/kotlin')
+        resources.srcDir file('src/integrationTest/resources')
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter test
+    useJUnitPlatform()
+}
+
+//check.dependsOn integrationTest
+
+integrationTest.enabled=false

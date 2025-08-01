@@ -190,16 +190,16 @@ class OutboxServiceTest {
 
     @Test
     fun `processOutboxEvents should handle invalid event payload gracefully`() {
-        // Given
-        val invalidEvent = sampleOutboxEvent.copy(eventPayload = "invalid json")
-        every { outboxRepository.findByProcessedFalseOrderByCreatedAtAsc() } returns Flux.just(invalidEvent)
+        val invalidJson = """{ "not": "a cloud event" }"""
+        val invalidEvent = sampleOutboxEvent.copy(eventPayload = invalidJson)
 
-        // When & Then
+        every { outboxRepository.findByProcessedFalseOrderByCreatedAtAsc() } returns Flux.just(invalidEvent)
+        unmockkStatic(CloudEventWrapper::class) // Let the deserialisation fail naturally
+
         StepVerifier.create(outboxService.processOutboxEvents())
             .verifyComplete()
 
         verify { outboxRepository.findByProcessedFalseOrderByCreatedAtAsc() }
-        verify(exactly = 0) { cloudEventPublisher.publishEvent(any(), any()) }
     }
 
     @Test

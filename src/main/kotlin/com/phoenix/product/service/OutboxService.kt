@@ -144,11 +144,9 @@ class OutboxService(
             .collectList()
             .doOnNext { events -> log.info("Processing {} unprocessed outbox events", events.size) }
             .flatMapMany { events -> Flux.fromIterable(events) }
-            .flatMap { event ->
-                processOutboxEvent(event)
-                    .onErrorContinue { error, _ ->
-                        log.error("Failed to process outbox event: {}", event.id, error)
-                    }
+            .flatMap { event -> processOutboxEvent(event) }
+            .onErrorContinue { error, event ->
+                log.error("Failed to process outbox event", error)
             }
             .then()
     }
@@ -229,21 +227,24 @@ class OutboxService(
      * Marks an outbox event as processed
      */
     private fun markEventAsProcessed(outboxEvent: OutboxEvent): Mono<Void> {
-        return Mono.fromCallable {
-            outboxEvent.copy(
-                processed = true,
-                processedAt = Instant.now()
-            )
+        val id = outboxEvent.id
+        return if (id != null) {
+            val now = Instant.now()
+            outboxRepository.markAsProcessed(id, now)
+                .doOnNext { updated ->
+                    if (updated == 0) {
+                        log.warn("No outbox event updated for ID {}", id)
+                    } else {
+                        log.debug("Marked outbox event {} as processed", id)
+                    }
+                }
+                .then()
+        } else {
+            log.error("Cannot mark event as processed: missing ID")
+            Mono.empty()
         }
-            .flatMap { updatedEvent ->
-                outboxRepository.save(updatedEvent)
-            }
-            .onErrorMap { e ->
-                log.error("Failed to mark event as processed: {}", outboxEvent.id, e)
-                e
-            }
-            .then()
     }
+
 
     /**
      * Cleanup processed outbox events older than specified duration

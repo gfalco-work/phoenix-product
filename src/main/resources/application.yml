@@ -12,12 +12,15 @@ spring:
   data:
     r2dbc:
       repositories:
-        enabled:
-          true
+        enabled: true
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/productdb
     username: admin
     password: password123
+    pool:
+      initial-size: 5
+      max-size: 10
+      max-idle-time: 30s
   flyway:
     url: jdbc:postgresql://localhost:5432/productdb
     user: admin

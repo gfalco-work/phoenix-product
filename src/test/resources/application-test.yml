@@ -5,9 +5,3 @@ spring:
         jwt:
           issuer-uri: ""
           jwk-set-uri: https://idp.example.com/.well-known/jwks.json
-
-  flyway:
-    enabled: false
-  r2dbc:
-    pool:
-      enabled: false
