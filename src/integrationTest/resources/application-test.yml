@@ -1,0 +1,3 @@
+phoenix:
+  observability:
+    register-global: false

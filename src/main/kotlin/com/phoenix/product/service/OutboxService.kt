@@ -14,7 +14,6 @@ import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Instant
 
@@ -22,16 +21,13 @@ import java.time.Instant
 @Transactional
 class OutboxService(
     private val outboxRepository: OutboxRepository,
-    private val cloudEventPublisher: CloudEventPublisher
+    private val cloudEventPublisher: CloudEventPublisher,
 ) {
 
     private val log = KotlinLogging.logger {}
 
     @Value("\${phoenix.events.topics.product-events:product-events}")
     private lateinit var productEventsTopic: String
-
-    @Value("\${spring.application.name:product-service}")
-    private lateinit var applicationName: String
 
     /**
      * Publishes a ProductCreated event using the Phoenix Events library
@@ -138,15 +134,14 @@ class OutboxService(
      * Processes unprocessed events from the outbox and publishes them to Kafka
      * This method should be called by a scheduled job or event processor
      */
-    @Transactional
     fun processOutboxEvents(): Mono<Void> {
         return outboxRepository.findByProcessedFalseOrderByCreatedAtAsc()
-            .collectList()
-            .doOnNext { events -> log.info("Processing {} unprocessed outbox events", events.size) }
-            .flatMapMany { events -> Flux.fromIterable(events) }
-            .flatMap { event -> processOutboxEvent(event) }
-            .onErrorContinue { error, event ->
-                log.error("Failed to process outbox event", error)
+            .flatMap { event ->
+                processOutboxEvent(event)
+                    .onErrorResume { error ->
+                        log.warn("Skipping invalid event {}: {}", event.id, error.message)
+                        Mono.empty()
+                    }
             }
             .then()
     }
@@ -155,6 +150,7 @@ class OutboxService(
      * Processes a single outbox event
      */
     private fun processOutboxEvent(outboxEvent: OutboxEvent): Mono<Void> {
+        log.info("Starting to process outbox event: {}", outboxEvent.id)
         return validateEventPayload(outboxEvent.eventPayload)
             .flatMap {
                 Mono.fromCallable { CloudEventWrapper.deserializeCloudEvent(outboxEvent.eventPayload) }
@@ -172,16 +168,19 @@ class OutboxService(
                 }
             }
             .flatMap { cloudEvent ->
+                log.info("About to publish event: {}", outboxEvent.id)
                 Mono.fromFuture(cloudEventPublisher.publishEvent(productEventsTopic, cloudEvent))
                     .doOnSuccess {
                         log.info("Successfully published outbox event: {} for aggregate: {}",
                             outboxEvent.id, outboxEvent.aggregateId)
                     }
-                    .flatMap { markEventAsProcessed(outboxEvent) }
+                    .then(Mono.defer {
+                        log.info("About to mark event as processed: {}", outboxEvent.id)
+                        markEventAsProcessed(outboxEvent)
+                    })
             }
-            .onErrorMap { e ->
+            .doOnError { e ->
                 log.error("Failed to process outbox event: {}", outboxEvent.id, e)
-                e
             }
     }
 
@@ -230,20 +229,18 @@ class OutboxService(
         val id = outboxEvent.id
         return if (id != null) {
             val now = Instant.now()
-            outboxRepository.markAsProcessed(id, now)
-                .doOnNext { updated ->
-                    if (updated == 0) {
-                        log.warn("No outbox event updated for ID {}", id)
-                    } else {
-                        log.debug("Marked outbox event {} as processed", id)
-                    }
+            val updatedEvent = outboxEvent.copy(processed = true, processedAt = now)
+            outboxRepository.save(updatedEvent)
+                .doOnNext { saved ->
+                    log.info("Successfully marked outbox event {} as processed", saved.id)
                 }
                 .then()
         } else {
             log.error("Cannot mark event as processed: missing ID")
-            Mono.empty()
+            Mono.error(IllegalStateException("Cannot mark event as processed: missing ID"))
         }
     }
+
 
 
     /**

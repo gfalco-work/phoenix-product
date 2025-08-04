@@ -54,7 +54,6 @@ class OutboxServiceTest {
 
         // Set required @Value properties
         ReflectionTestUtils.setField(outboxService, "productEventsTopic", "product-events")
-        ReflectionTestUtils.setField(outboxService, "applicationName", "product-service")
 
         sampleProduct = Product(
             id = 1L,

@@ -1,7 +1,9 @@
 package com.phoenix.product.service
 
+
 import com.ninjasquad.springmockk.MockkBean
 import com.phoenix.events.cloudevents.CloudEventPublisher
+import com.phoenix.product.config.SharedPostgresContainer
 import com.phoenix.product.repository.OutboxRepository
 import com.phoenix.product.repository.model.OutboxEvent
 import com.phoenix.product.repository.model.Product
@@ -18,21 +20,38 @@ import org.junit.jupiter.api.assertNull
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
-import org.testcontainers.junit.jupiter.Testcontainers
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.CompletableFuture
 
-
 @ActiveProfiles("test")
-@SpringBootTest
-@Testcontainers
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class OutboxServiceIntegrationTest {
+    companion object {
+        @JvmStatic
+        @DynamicPropertySource
+        fun overrideProps(registry: DynamicPropertyRegistry) {
+            val container = SharedPostgresContainer
+            registry.add("spring.r2dbc.url") {
+                "r2dbc:postgresql://${container.host}:${container.getMappedPort(5432)}/${container.databaseName}"
+            }
+            registry.add("spring.r2dbc.username") { container.username }
+            registry.add("spring.r2dbc.password") { container.password }
+
+            registry.add("spring.flyway.url") { container.jdbcUrl }
+            registry.add("spring.flyway.user") { container.username }
+            registry.add("spring.flyway.password") { container.password }
+        }
+    }
 
     @Autowired
     lateinit var outboxService: OutboxService
+
     @Autowired
     lateinit var outboxRepository: OutboxRepository
+
     @MockkBean
     lateinit var cloudEventPublisher: CloudEventPublisher
 
@@ -84,7 +103,7 @@ class OutboxServiceIntegrationTest {
         """.trimIndent()
     }
 
-//    @Test
+    @Test
     fun `should store and process ProductCreated event`() {
         outboxService.publishProductCreatedEvent(testProduct).block()
 
@@ -101,7 +120,7 @@ class OutboxServiceIntegrationTest {
         verify(exactly = 1) { cloudEventPublisher.publishEvent("product-events", any()) }
     }
 
-//    @Test
+    @Test
     fun `should store and process ProductUpdated event`() {
         val updated = testProduct.copy(name = "Updated", version = 2L)
         outboxService.publishProductUpdatedEvent(updated).block()
@@ -114,7 +133,7 @@ class OutboxServiceIntegrationTest {
         verify(exactly = 1) { cloudEventPublisher.publishEvent("product-events", any()) }
     }
 
-//    @Test
+    @Test
     fun `should store and process ProductDeleted event`() {
         outboxService.publishProductDeletedEvent(testProduct.id!!, "admin").block()
         outboxService.processOutboxEvents().block()
@@ -126,7 +145,7 @@ class OutboxServiceIntegrationTest {
         verify(exactly = 1) { cloudEventPublisher.publishEvent("product-events", any()) }
     }
 
-//    @Test
+    @Test
     fun `should process events in order`() {
         val products = (2L..4L).map { testProduct.copy(id = it) }
         products.forEach { outboxService.publishProductCreatedEvent(it).block() }
@@ -227,7 +246,7 @@ class OutboxServiceIntegrationTest {
         verify(exactly = 0) { cloudEventPublisher.publishEvent(any(), any()) }
     }
 
-//    @Test
+    @Test
     fun `should support minimal product payload`() {
         val minimal = Product(
             id = 11L,
@@ -253,7 +272,7 @@ class OutboxServiceIntegrationTest {
         verify(exactly = 1) { cloudEventPublisher.publishEvent("product-events", any()) }
     }
 
-//    @Test
+    @Test
     fun `should process each event only once`() {
         val products = (12..14).map { testProduct.copy(id = it.toLong()) }
         products.forEach { outboxService.publishProductCreatedEvent(it).block() }

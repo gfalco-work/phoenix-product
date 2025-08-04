@@ -1,5 +1,6 @@
 plugins {
     id 'application'
+    id 'idea'
     id 'org.springframework.boot' version '3.5.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.google.cloud.tools.jib' version '3.4.5'
@@ -52,7 +53,7 @@ dependencies {
     // Phoenix libs
     implementation 'com.phoenix.events:common:1.1.1'
     implementation 'com.phoenix.events:product-events:1.1.1'
-    implementation 'com.phoenix:phoenix-observability:1.2.0'
+    implementation 'com.phoenix:phoenix-observability:1.2.4'
 
     // Kotlin essentials
     implementation 'org.jetbrains.kotlin:kotlin-reflect'
@@ -92,20 +93,36 @@ application {
     mainClass = "com.phoenix.product.ApplicationKt"
 }
 
+
+// Define integrationTest source set
 sourceSets {
     integrationTest {
-        java.srcDir file('src/integrationTest/kotlin')
-        resources.srcDir file('src/integrationTest/resources')
-        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        java.srcDirs = ['src/integrationTest/kotlin']
+        resources.srcDirs = ['src/integrationTest/resources']
+        compileClasspath += main.output + configurations.testRuntimeClasspath
         runtimeClasspath += output + compileClasspath
     }
 }
 
+// Extend test dependencies
 configurations {
     integrationTestImplementation.extendsFrom testImplementation
     integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
+// Mark integration test sources as test sources in IntelliJ
+idea {
+    module {
+        testSources.from(sourceSets.integrationTest.allSource.srcDirs)
+    }
+}
+
+// Handle duplicate resources
+tasks.named('processIntegrationTestResources') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Register the integrationTest task
 tasks.register('integrationTest', Test) {
     description = 'Runs integration tests.'
     group = 'verification'
@@ -115,6 +132,5 @@ tasks.register('integrationTest', Test) {
     useJUnitPlatform()
 }
 
-//check.dependsOn integrationTest
 
-integrationTest.enabled=false
+check.dependsOn integrationTest
