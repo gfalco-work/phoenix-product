@@ -1,13 +1,13 @@
 package com.phoenix.product.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.phoenix.observability.tracing.services.ObservabilityService
 import com.phoenix.product.api.model.CreateProductRequest
 import com.phoenix.product.api.model.UpdateProductRequest
 import com.phoenix.product.exception.ProductConcurrentModificationException
 import com.phoenix.product.exception.ProductNotFoundException
 import com.phoenix.product.repository.ProductRepository
 import com.phoenix.product.repository.model.Product
-import io.mockk.MockKAnnotations
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.math.BigDecimal
 import java.time.Instant
+import java.util.function.Function
 
 @ExtendWith(MockKExtension::class)
 class ProductServiceTest {
@@ -35,6 +36,9 @@ class ProductServiceTest {
     @MockK
     private lateinit var objectMapper: ObjectMapper
 
+    @MockK(relaxed = true)
+    private lateinit var observabilityService: ObservabilityService
+
     @InjectMockKs
     private lateinit var productService: ProductService
 
@@ -44,7 +48,12 @@ class ProductServiceTest {
 
     @BeforeEach
     fun setUp() {
-        MockKAnnotations.init(this)
+
+        every { observabilityService.wrapMono<Any, Any>(any(), any(), any(), any(), any()) } answers {
+            val operation = arg<Function<Any, Mono<Any>>>(3)
+            val input = arg<Any>(2)
+            operation.apply(input)
+        }
 
         sampleProduct = Product(
             id = 1L,

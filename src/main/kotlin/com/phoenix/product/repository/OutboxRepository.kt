@@ -10,10 +10,4 @@ import java.time.Instant
 interface OutboxRepository : R2dbcRepository<OutboxEvent, Long> {
     fun findByProcessedFalseOrderByCreatedAtAsc(): Flux<OutboxEvent>
     fun findByProcessedTrueAndCreatedAtBefore(cutoffTime: Instant): Flux<OutboxEvent>
-//    @Query("""
-//        UPDATE outbox_events
-//        SET processed = TRUE, processed_at = :processedAt
-//        WHERE id = :id
-//    """)
-//    fun markAsProcessed(id: Long, processedAt: Instant): Mono<Int>
 }
