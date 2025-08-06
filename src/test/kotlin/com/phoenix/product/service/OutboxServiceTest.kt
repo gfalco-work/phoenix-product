@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.phoenix.events.cloudevents.CloudEventPublisher
 import com.phoenix.events.cloudevents.CloudEventWrapper
+import com.phoenix.observability.tracing.services.ObservabilityService
 import com.phoenix.product.repository.OutboxRepository
 import com.phoenix.product.repository.model.OutboxEvent
 import com.phoenix.product.repository.model.Product
@@ -30,6 +31,7 @@ import reactor.test.StepVerifier
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.CompletableFuture
+import java.util.function.Function
 
 @ExtendWith(MockKExtension::class)
 class OutboxServiceTest {
@@ -39,6 +41,9 @@ class OutboxServiceTest {
 
     @MockK
     private lateinit var cloudEventPublisher: CloudEventPublisher
+
+    @MockK(relaxed = true)
+    private lateinit var observabilityService: ObservabilityService
 
     @InjectMockKs
     private lateinit var outboxService: OutboxService
@@ -52,6 +57,14 @@ class OutboxServiceTest {
     @BeforeEach
     fun setUp() {
         ReflectionTestUtils.setField(outboxService, "productEventsTopic", "product-events")
+
+        val opSlot = slot<Function<Any, Mono<Any>>>()
+        every {
+            observabilityService.wrapMono<Any, Any>(any(), any(), any(), capture(opSlot), any())
+        } answers {
+            val input = arg<Any>(2)
+            opSlot.captured.apply(input)
+        }
 
         sampleProduct = Product(
             id = 1L,

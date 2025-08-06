@@ -40,19 +40,19 @@ class ProductController(
 
     @PutMapping("/{id}")
     fun updateProduct(
-        @PathVariable id: String,
+        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateProductRequest
     ): Mono<ResponseEntity<ProductResponse>> {
         log.info("Updating product with id: $id")
-        return productService.updateProduct(id.toLong(), request)
+        return productService.updateProduct(id, request)
             .map { product -> ResponseEntity.status(HttpStatus.OK).body(product.toResponse()) }
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deleteProduct(@PathVariable id: String): Mono<ResponseEntity<Void>> {
+    fun deleteProduct(@PathVariable id: Long): Mono<ResponseEntity<Void>> {
         log.info("Deleting product with id: $id")
-        return productService.deleteProduct(id.toLong())
+        return productService.deleteProduct(id)
             .thenReturn(ResponseEntity.noContent().build())
     }
 }

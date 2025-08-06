@@ -6,6 +6,7 @@ import com.phoenix.events.product.DeletionType
 import com.phoenix.events.product.ProductCreatedEventData
 import com.phoenix.events.product.ProductDeletedEventData
 import com.phoenix.events.product.ProductUpdatedEventData
+import com.phoenix.observability.tracing.services.ObservabilityService
 import com.phoenix.product.repository.OutboxRepository
 import com.phoenix.product.repository.model.OutboxEvent
 import com.phoenix.product.repository.model.Product
@@ -22,6 +23,7 @@ import java.time.Instant
 class OutboxService(
     private val outboxRepository: OutboxRepository,
     private val cloudEventPublisher: CloudEventPublisher,
+    private val observabilityService: ObservabilityService
 ) {
 
     private val log = KotlinLogging.logger {}
@@ -33,101 +35,170 @@ class OutboxService(
      * Publishes a ProductCreated event using the Phoenix Events library
      */
     fun publishProductCreatedEvent(product: Product): Mono<Void> {
-        return Mono.fromCallable {
-            ProductCreatedEventData.newBuilder()
-                .setProductId(product.id?.toString() ?: "")
-                .setName(product.name)
-                .setDescription(product.description ?: "")
-                .setCategory(product.category)
-                .setPrice(product.price)
-                .setBrand(product.brand)
-                .setSku(product.sku)
-                .setSpecifications(parseSpecifications(product.specifications))
-                .setTags(parseTags(product.tags))
-                .setVersion(product.version)
-                .setMetadata(CloudEventWrapper.createEventMetadata())
-                .build()
-        }
-            .flatMap { eventData ->
-                val cloudEvent = CloudEventWrapper.wrapEvent(
-                    "com.phoenix.events.product.created",
-                    "/products",
-                    eventData,
-                    eventData.metadata
-                )
-                storeEventInOutbox(product.id?.toString() ?: "", "ProductCreated", cloudEvent)
-            }
-            .doOnSuccess { log.info("ProductCreated event stored in outbox for product: {}", product.id) }
-            .onErrorMap { e ->
-                log.error("Failed to create ProductCreated event for product: {}", product.id, e)
-                RuntimeException("Failed to create ProductCreated event", e)
-            }
-            .then()
+        return observabilityService.wrapMono(
+            "product-service",
+            "publishProductCreatedEvent",
+            product,
+            { product ->
+                Mono.fromCallable {
+                    ProductCreatedEventData.newBuilder()
+                        .setProductId(product.id?.toString() ?: "")
+                        .setName(product.name)
+                        .setDescription(product.description ?: "")
+                        .setCategory(product.category)
+                        .setPrice(product.price)
+                        .setBrand(product.brand)
+                        .setSku(product.sku)
+                        .setSpecifications(parseSpecifications(product.specifications))
+                        .setTags(parseTags(product.tags))
+                        .setVersion(product.version)
+                        .setMetadata(CloudEventWrapper.createEventMetadata())
+                        .build()
+                }
+                    .flatMap { eventData ->
+                        val cloudEvent = CloudEventWrapper.wrapEvent(
+                            "com.phoenix.events.product.created",
+                            "/products",
+                            eventData,
+                            eventData.metadata
+                        )
+                        storeEventInOutbox(product.id?.toString() ?: "", "ProductCreated", cloudEvent)
+                    }
+                    .doOnSuccess { log.info("ProductCreated event stored in outbox for product: {}", product.id) }
+                    .onErrorMap { e ->
+                        log.error("Failed to create ProductCreated event for product: {}", product.id, e)
+                        RuntimeException("Failed to create ProductCreated event", e)
+                    }
+                    .then()
+            },
+            mapOf(
+                "operation.type" to "create",
+                "product.sku" to product.sku,
+                "product.category" to product.category
+            )
+        )
     }
 
     /**
      * Publishes a ProductUpdated event using the Phoenix Events library
      */
     fun publishProductUpdatedEvent(product: Product): Mono<Void> {
-        return Mono.fromCallable {
-            ProductUpdatedEventData.newBuilder()
-                .setProductId(product.id?.toString() ?: "")
-                .setName(product.name)
-                .setDescription(product.description ?: "")
-                .setCategory(product.category)
-                .setPrice(product.price)
-                .setBrand(product.brand)
-                .setSku(product.sku)
-                .setSpecifications(parseSpecifications(product.specifications))
-                .setTags(parseTags(product.tags))
-                .setVersion(product.version)
-                .setMetadata(CloudEventWrapper.createEventMetadata())
-                .build()
-        }
-            .flatMap { eventData ->
-                val cloudEvent = CloudEventWrapper.wrapEvent(
-                    "com.phoenix.events.product.updated",
-                    "/products",
-                    eventData,
-                    eventData.metadata
-                )
-                storeEventInOutbox(product.id?.toString() ?: "", "ProductUpdated", cloudEvent)
-            }
-            .doOnSuccess { log.info("ProductUpdated event stored in outbox for product: {}", product.id) }
-            .onErrorMap { e ->
-                log.error("Failed to create ProductUpdated event for product: {}", product.id, e)
-                RuntimeException("Failed to create ProductUpdated event", e)
-            }
-            .then()
+        return observabilityService.wrapMono(
+            "product-service",
+            "publishProductUpdatedEvent",
+            product,
+            { product ->
+                Mono.fromCallable {
+                    ProductUpdatedEventData.newBuilder()
+                        .setProductId(product.id?.toString() ?: "")
+                        .setName(product.name)
+                        .setDescription(product.description ?: "")
+                        .setCategory(product.category)
+                        .setPrice(product.price)
+                        .setBrand(product.brand)
+                        .setSku(product.sku)
+                        .setSpecifications(parseSpecifications(product.specifications))
+                        .setTags(parseTags(product.tags))
+                        .setVersion(product.version)
+                        .setMetadata(CloudEventWrapper.createEventMetadata())
+                        .build()
+                }
+                    .flatMap { eventData ->
+                        val cloudEvent = CloudEventWrapper.wrapEvent(
+                            "com.phoenix.events.product.updated",
+                            "/products",
+                            eventData,
+                            eventData.metadata
+                        )
+                        storeEventInOutbox(product.id?.toString() ?: "", "ProductUpdated", cloudEvent)
+                    }
+                    .doOnSuccess { log.info("ProductUpdated event stored in outbox for product: {}", product.id) }
+                    .onErrorMap { e ->
+                        log.error("Failed to create ProductUpdated event for product: {}", product.id, e)
+                        RuntimeException("Failed to create ProductUpdated event", e)
+                    }
+                    .then()
+            },
+            mapOf(
+                "operation.type" to "update",
+                "product.sku" to product.sku,
+                "product.category" to product.category
+            )
+        )
     }
 
     /**
      * Publishes a ProductDeleted event using the Phoenix Events library
      */
     fun publishProductDeletedEvent(productId: Long, deletedBy: String): Mono<Void> {
-        return Mono.fromCallable {
-            ProductDeletedEventData.newBuilder()
-                .setProductId(productId.toString())
-                .setDeletedBy(deletedBy)
-                .setDeletionType(DeletionType.HARD_DELETE)
-                .setMetadata(CloudEventWrapper.createEventMetadata())
-                .build()
-        }
-            .flatMap { eventData ->
-                val cloudEvent = CloudEventWrapper.wrapEvent(
-                    "com.phoenix.events.product.deleted",
-                    "/products",
-                    eventData,
-                    eventData.metadata
-                )
-                storeEventInOutbox(productId.toString(), "ProductDeleted", cloudEvent)
-            }
-            .doOnSuccess { log.info("ProductDeleted event stored in outbox for product: {}", productId) }
-            .onErrorMap { e ->
-                log.error("Failed to create ProductDeleted event for product: {}", productId, e)
-                RuntimeException("Failed to create ProductDeleted event", e)
-            }
-            .then()
+        return observabilityService.wrapMono(
+            "product-service",
+            "publishProductDeletedEvent",
+            productId,
+            { productId ->
+                Mono.fromCallable {
+                    ProductDeletedEventData.newBuilder()
+                        .setProductId(productId.toString())
+                        .setDeletedBy(deletedBy)
+                        .setDeletionType(DeletionType.HARD_DELETE)
+                        .setMetadata(CloudEventWrapper.createEventMetadata())
+                        .build()
+                }
+                    .flatMap { eventData ->
+                        val cloudEvent = CloudEventWrapper.wrapEvent(
+                            "com.phoenix.events.product.deleted",
+                            "/products",
+                            eventData,
+                            eventData.metadata
+                        )
+                        storeEventInOutbox(productId.toString(), "ProductDeleted", cloudEvent)
+                    }
+                    .doOnSuccess { log.info("ProductDeleted event stored in outbox for product: {}", productId) }
+                    .onErrorMap { e ->
+                        log.error("Failed to create ProductDeleted event for product: {}", productId, e)
+                        RuntimeException("Failed to create ProductDeleted event", e)
+                    }
+                    .then()
+            },
+            mapOf(
+                "operation.type" to "delete",
+                "product.id" to productId.toString()
+            )
+        )
+    }
+
+    /**
+     * Cleanup processed outbox events older than specified duration
+     */
+    fun cleanupProcessedEvents(olderThan: Instant): Mono<Void> {
+        return observabilityService.wrapMono(
+            "outbox-service",
+            "cleanupProcessedEvents",
+            olderThan,
+            { cutoffTime ->
+                outboxRepository.findByProcessedTrueAndCreatedAtBefore(cutoffTime)
+                    .collectList()
+                    .flatMap { eventsToDelete: List<OutboxEvent> ->
+                        if (eventsToDelete.isNotEmpty()) {
+                            outboxRepository.deleteAll(eventsToDelete)
+                                .doOnSuccess {
+                                    log.info("Cleaned up {} processed outbox events older than {}", eventsToDelete.size, cutoffTime)
+                                }
+                                .then()
+                        } else {
+                            log.debug("No processed events found for cleanup before {}", cutoffTime)
+                            Mono.empty()
+                        }
+                    }
+                    .onErrorMap { e ->
+                        log.error("Failed to cleanup processed events", e)
+                        e
+                    }
+            },
+            mapOf(
+                "operation.type" to "cleanup"
+            )
+        )
     }
 
     /**
@@ -135,15 +206,23 @@ class OutboxService(
      * This method should be called by a scheduled job or event processor
      */
     fun processOutboxEvents(): Mono<Void> {
-        return outboxRepository.findByProcessedFalseOrderByCreatedAtAsc()
-            .flatMap { event ->
-                processOutboxEvent(event)
-                    .onErrorResume { error ->
-                        log.warn("Skipping invalid event {}: {}", event.id, error.message)
-                        Mono.empty()
+        return observabilityService.wrapMono(
+            "outbox-service",
+            "processOutboxEvents",
+            Unit,
+            { _ ->
+                outboxRepository.findByProcessedFalseOrderByCreatedAtAsc()
+                    .flatMap { event ->
+                        processOutboxEvent(event)
+                            .onErrorResume { error ->
+                                log.warn("Skipping invalid event {}: {}", event.id, error.message)
+                                Mono.empty()
+                            }
                     }
-            }
-            .then()
+                    .then()
+            },
+            mapOf("operation.type" to "batch-process")
+        )
     }
 
     /**
@@ -171,8 +250,10 @@ class OutboxService(
                 log.info("About to publish event: {}", outboxEvent.id)
                 Mono.fromFuture(cloudEventPublisher.publishEvent(productEventsTopic, cloudEvent))
                     .doOnSuccess {
-                        log.info("Successfully published outbox event: {} for aggregate: {}",
-                            outboxEvent.id, outboxEvent.aggregateId)
+                        log.info(
+                            "Successfully published outbox event: {} for aggregate: {}",
+                            outboxEvent.id, outboxEvent.aggregateId
+                        )
                     }
                     .then(Mono.defer {
                         log.info("About to mark event as processed: {}", outboxEvent.id)
@@ -205,6 +286,9 @@ class OutboxService(
             .flatMap { outboxEvent ->
                 outboxRepository.save(outboxEvent)
             }
+            .doOnSuccess { saved ->
+                log.info { "outbox.saved outboxId=${(saved as OutboxEvent).id} aggregateId=${saved.aggregateId} eventType=${saved.eventType}" }
+            }
             .onErrorMap { e ->
                 log.error("Failed to store event in outbox for aggregate: {}", aggregateId, e)
                 RuntimeException("Failed to store event in outbox", e)
@@ -216,6 +300,7 @@ class OutboxService(
      */
     private fun validateEventPayload(payload: String?): Mono<String> {
         return if (payload.isNullOrBlank() || !payload.trim().startsWith("{") || !payload.trim().endsWith("}")) {
+            log.warn { "Invalid event payload detected - payloadPreview=${payload?.take(200)}" }
             Mono.error(IllegalArgumentException("Invalid event payload format"))
         } else {
             Mono.just(payload)
@@ -239,33 +324,6 @@ class OutboxService(
             log.error("Cannot mark event as processed: missing ID")
             Mono.error(IllegalStateException("Cannot mark event as processed: missing ID"))
         }
-    }
-
-
-
-    /**
-     * Cleanup processed outbox events older than specified duration
-     */
-    @Transactional
-    fun cleanupProcessedEvents(olderThan: Instant): Mono<Void> {
-        return outboxRepository.findByProcessedTrueAndCreatedAtBefore(olderThan)
-            .collectList()
-            .flatMap { eventsToDelete: List<OutboxEvent> ->
-                if (eventsToDelete.isNotEmpty()) {
-                    outboxRepository.deleteAll(eventsToDelete)
-                        .doOnSuccess {
-                            log.info("Cleaned up {} processed outbox events older than {}", eventsToDelete.size, olderThan)
-                        }
-                        .then()
-                } else {
-                    log.debug("No processed events found for cleanup before {}", olderThan)
-                    Mono.empty()
-                }
-            }
-            .onErrorMap { e ->
-                log.error("Failed to cleanup processed events", e)
-                e
-            }
     }
 
     private fun parseSpecifications(specifications: String?): MutableMap<String, String> {

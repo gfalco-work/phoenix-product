@@ -8,6 +8,7 @@ import com.phoenix.product.exception.ProductConcurrentModificationException
 import com.phoenix.product.exception.ProductNotFoundException
 import com.phoenix.product.repository.ProductRepository
 import com.phoenix.product.repository.model.Product
+import mu.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.stereotype.Service
@@ -23,12 +24,17 @@ class ProductService(
     private val objectMapper: ObjectMapper,
     private val observabilityService: ObservabilityService
 ) {
+
+    private val log = KotlinLogging.logger {}
+
     fun createProduct(request: CreateProductRequest): Mono<Product> {
+        log.info { "Attempting to create product with SKU: ${request.sku}" }
+
         return observabilityService.wrapMono(
             "product-service",
             "createProduct",
             request,
-            { req ->
+            { request ->
                 val product = Product(
                     name = request.name,
                     description = request.description,
@@ -43,12 +49,14 @@ class ProductService(
                 )
 
                 productRepository.save(product)
+                    .doOnSuccess { saved -> log.info { "Product created successfully: id=${saved.id}, sku=${saved.sku}" } }
                     .flatMap { savedProduct ->
                         outboxService.publishProductCreatedEvent(savedProduct)
                             .thenReturn(savedProduct)
                     }
                     .onErrorMap(DataIntegrityViolationException::class.java) {
-                        ProductConcurrentModificationException("Product with SKU ${req.sku} already exists")
+                        log.warn(it) { "Duplicate SKU detected during creation: ${request.sku}" }
+                        ProductConcurrentModificationException("Product with SKU ${request.sku} already exists")
                     }
             },
             mapOf(
@@ -60,11 +68,12 @@ class ProductService(
     }
 
     fun updateProduct(id: Long, request: UpdateProductRequest): Mono<Product> {
+        log.info { "Updating product with id=$id and SKU=${request.sku}" }
         return observabilityService.wrapMono(
             "product-service",
             "updateProduct",
             request,
-            { req ->
+            { request ->
                 getProduct(id)
                     .flatMap { existingProduct ->
                         val updatedProduct = existingProduct.copy(
@@ -80,17 +89,20 @@ class ProductService(
                         )
 
                         productRepository.save(updatedProduct)
+                            .doOnSuccess { saved -> log.info { "Product updated successfully: id=${saved.id}, sku=${saved.sku}" } }
                             .flatMap { saved ->
                                 outboxService.publishProductUpdatedEvent(saved)
                                     .thenReturn(saved)
                             }
                     }
                     .onErrorMap(OptimisticLockingFailureException::class.java) {
+                        log.warn(it) { "Optimistic lock failure on product id=$id" }
                         ProductConcurrentModificationException(
                             "Product was modified by another process. Please refresh and try again."
                         )
                     }
                     .onErrorMap(DataIntegrityViolationException::class.java) {
+                        log.warn(it) { "Duplicate SKU detected during update: ${request.sku}" }
                         ProductConcurrentModificationException("Product with SKU ${request.sku} already exists")
                     }
             },
@@ -103,6 +115,7 @@ class ProductService(
     }
 
     fun getProduct(id: Long): Mono<Product> {
+        log.debug { "Fetching product with id=$id" }
         return observabilityService.wrapMono(
             "product-service",
             "getProduct",
@@ -119,6 +132,7 @@ class ProductService(
     }
 
     fun deleteProduct(id: Long): Mono<Void> {
+        log.info { "Deleting product with id=$id" }
         return observabilityService.wrapMono(
             "product-service",
             "deleteProduct",
