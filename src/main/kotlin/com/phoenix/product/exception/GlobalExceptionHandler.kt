@@ -12,24 +12,21 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException::class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    fun handleProductNotFound(ex: ProductNotFoundException): ErrorResponse {
-        return ErrorResponse(
+    fun handleProductNotFound(ex: ProductNotFoundException) =
+        ErrorResponse(
             error = "PRODUCT_NOT_FOUND",
             message = ex.message ?: "Product not found"
         )
-    }
 
     @ExceptionHandler(ProductConcurrentModificationException::class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    fun handleProductAlreadyExists(ex: ProductConcurrentModificationException): ErrorResponse {
-        return ErrorResponse(
+    fun handleProductAlreadyExists(ex: ProductConcurrentModificationException) =
+        ErrorResponse(
             error = "PRODUCT_ALREADY_EXISTS",
             message = ex.message ?: "Product already exists"
         )
-    }
 
     @ExceptionHandler(NumberFormatException::class)
-    fun handleNumberFormatException(ex: NumberFormatException): ResponseEntity<String> {
-        return ResponseEntity.badRequest().body("Invalid ID format: must be a number.")
-    }
+    fun handleNumberFormatException(ex: NumberFormatException): ResponseEntity<String> =
+        ResponseEntity.badRequest().body("Invalid ID format: must be a number.")
 }

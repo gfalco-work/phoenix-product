@@ -12,7 +12,10 @@ import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -46,13 +49,17 @@ class ProductServiceTest {
     private lateinit var createRequest: CreateProductRequest
     private lateinit var updateRequest: UpdateProductRequest
 
+    private val fixedInstant: Instant = Instant.parse("2023-01-01T00:00:00Z")
+
     @BeforeEach
     fun setUp() {
-
-        every { observabilityService.wrapMono<Any, Any>(any(), any(), any(), any(), any()) } answers {
-            val operation = arg<Function<Any, Mono<Any>>>(3)
+        // capture the operation passed to observabilityService.wrapMono and invoke it with the provided input
+        val opSlot = slot<Function<Any, Mono<Any>>>()
+        every {
+            observabilityService.wrapMono<Any, Any>(any(), any(), any(), capture(opSlot), any())
+        } answers {
             val input = arg<Any>(2)
-            operation.apply(input)
+            opSlot.captured.apply(input)
         }
 
         sampleProduct = Product(
@@ -66,7 +73,7 @@ class ProductServiceTest {
             specifications = """{"color":"blue","size":"medium"}""",
             tags = """["electronics","gadget"]""",
             createdBy = "system",
-            createdAt = Instant.now(),
+            createdAt = fixedInstant,
             version = 1L
         )
 
@@ -98,7 +105,9 @@ class ProductServiceTest {
         // Given
         every { objectMapper.writeValueAsString(createRequest.specifications) } returns """{"color":"blue"}"""
         every { objectMapper.writeValueAsString(createRequest.tags) } returns """["electronics"]"""
-        every { productRepository.save(any<Product>()) } returns Mono.just(sampleProduct)
+        val savedSlot = slot<Product>()
+
+        every { productRepository.save(capture(savedSlot)) } returns Mono.just(sampleProduct)
         every { outboxService.publishProductCreatedEvent(sampleProduct) } returns Mono.empty()
 
         // When
@@ -106,11 +115,20 @@ class ProductServiceTest {
 
         // Then
         StepVerifier.create(result)
-            .expectNext(sampleProduct)
+            .expectNextMatches { it.id == sampleProduct.id && it.name == createRequest.name }
             .verifyComplete()
 
-        verify { productRepository.save(any<Product>()) }
-        verify { outboxService.publishProductCreatedEvent(sampleProduct) }
+        verify(exactly = 1) { productRepository.save(any<Product>()) }
+        verify(exactly = 1) { outboxService.publishProductCreatedEvent(sampleProduct) }
+
+        verifyOrder {
+            productRepository.save(any<Product>())
+            outboxService.publishProductCreatedEvent(sampleProduct)
+        }
+
+        assertThat(savedSlot.captured.name).isEqualTo(createRequest.name)
+        assertThat(savedSlot.captured.sku).isEqualTo(createRequest.sku)
+        assertThat(savedSlot.captured.specifications).contains("color")
     }
 
     @Test
@@ -129,6 +147,9 @@ class ProductServiceTest {
         StepVerifier.create(result)
             .expectError(ProductConcurrentModificationException::class.java)
             .verify()
+
+        // ensure publish is not called when save fails
+        verify(exactly = 0) { outboxService.publishProductCreatedEvent(any()) }
     }
 
     @Test
@@ -141,10 +162,10 @@ class ProductServiceTest {
 
         // Then
         StepVerifier.create(result)
-            .expectNext(sampleProduct)
+            .expectNextMatches { it.id == sampleProduct.id && it.name == sampleProduct.name }
             .verifyComplete()
 
-        verify { productRepository.findById(1L) }
+        verify(exactly = 1) { productRepository.findById(1L) }
     }
 
     @Test
@@ -164,17 +185,20 @@ class ProductServiceTest {
     @Test
     fun `updateProduct should update and publish event successfully`() {
         // Given
+        val updatedInstant = fixedInstant.plusSeconds(60)
         val updatedProduct = sampleProduct.copy(
             name = updateRequest.name,
             sku = updateRequest.sku,
             price = updateRequest.price.toDouble(),
-            updatedAt = Instant.now()
+            updatedAt = updatedInstant
         )
+
+        val savedSlot = slot<Product>()
 
         every { productRepository.findById(1L) } returns Mono.just(sampleProduct)
         every { objectMapper.writeValueAsString(updateRequest.specifications) } returns """{"color":"red"}"""
         every { objectMapper.writeValueAsString(updateRequest.tags) } returns """["electronics","updated"]"""
-        every { productRepository.save(any<Product>()) } returns Mono.just(updatedProduct)
+        every { productRepository.save(capture(savedSlot)) } returns Mono.just(updatedProduct)
         every { outboxService.publishProductUpdatedEvent(updatedProduct) } returns Mono.empty()
 
         // When
@@ -182,10 +206,21 @@ class ProductServiceTest {
 
         // Then
         StepVerifier.create(result)
-            .expectNext(updatedProduct)
+            .expectNextMatches { it.id == updatedProduct.id && it.name == updateRequest.name }
             .verifyComplete()
 
-        verify { outboxService.publishProductUpdatedEvent(updatedProduct) }
+        verify(exactly = 1) { productRepository.findById(1L) }
+        verify(exactly = 1) { productRepository.save(any<Product>()) }
+        verify(exactly = 1) { outboxService.publishProductUpdatedEvent(updatedProduct) }
+
+        verifyOrder {
+            productRepository.findById(1L)
+            productRepository.save(any<Product>())
+            outboxService.publishProductUpdatedEvent(updatedProduct)
+        }
+
+        assertThat(savedSlot.captured.name).isEqualTo(updateRequest.name)
+        assertThat(savedSlot.captured.sku).isEqualTo(updateRequest.sku)
     }
 
     @Test
@@ -205,6 +240,10 @@ class ProductServiceTest {
         StepVerifier.create(result)
             .expectError(ProductConcurrentModificationException::class.java)
             .verify()
+
+        verify(exactly = 1) { productRepository.findById(1L) }
+        verify(exactly = 1) { productRepository.save(any<Product>()) }
+        verify(exactly = 0) { outboxService.publishProductUpdatedEvent(any()) }
     }
 
     @Test
@@ -219,6 +258,8 @@ class ProductServiceTest {
         StepVerifier.create(result)
             .expectError(ProductNotFoundException::class.java)
             .verify()
+
+        verify(exactly = 1) { productRepository.findById(999L) }
     }
 
     @Test
@@ -235,8 +276,13 @@ class ProductServiceTest {
         StepVerifier.create(result)
             .verifyComplete()
 
-        verify { productRepository.delete(sampleProduct) }
-        verify { outboxService.publishProductDeletedEvent(1L, "user") }
+        verify(exactly = 1) { productRepository.delete(sampleProduct) }
+        verify(exactly = 1) { outboxService.publishProductDeletedEvent(1L, "user") }
+        verifyOrder {
+            productRepository.findById(1L)
+            productRepository.delete(sampleProduct)
+            outboxService.publishProductDeletedEvent(1L, "user")
+        }
     }
 
     @Test
@@ -251,5 +297,9 @@ class ProductServiceTest {
         StepVerifier.create(result)
             .expectError(ProductNotFoundException::class.java)
             .verify()
+
+        verify(exactly = 1) { productRepository.findById(999L) }
+        verify(exactly = 0) { productRepository.delete(any()) }
+        verify(exactly = 0) { outboxService.publishProductDeletedEvent(any(), any()) }
     }
 }

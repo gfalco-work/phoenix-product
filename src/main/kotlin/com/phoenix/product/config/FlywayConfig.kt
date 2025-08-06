@@ -13,10 +13,7 @@ class FlywayConfig(
 ) {
 
     @Bean(initMethod = "migrate")
-    fun flyway(): Flyway {
-        return Flyway(
-            Flyway.configure()
-                .dataSource(url, user, password)
-        )
-    }
+    fun flyway(): Flyway = Flyway.configure()
+        .dataSource(url, user, password)
+        .load()
 }
