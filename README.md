@@ -225,6 +225,12 @@ docker run -p 8300:8300 \
   phoenix-product
 ```
 
+#### Cleanup
+Delete hanging postgres containers created by integration tests: 
+```
+podman ps -q --filter "ancestor=postgres:17" | xargs podman rm -f
+```
+
 ### Environment Variables
 - SPRING_R2DBC_URL: PostgreSQL R2DBC connection string
 - SPRING_R2DBC_USERNAME: Database username
@@ -232,11 +238,4 @@ docker run -p 8300:8300 \
 - SPRING_KAFKA_BOOTSTRAP_SERVERS: Kafka bootstrap servers
 - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: JWT issuer URI
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
  

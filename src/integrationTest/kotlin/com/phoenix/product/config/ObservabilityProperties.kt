@@ -13,4 +13,5 @@ class ObservabilityProperties {
      * when running tests in the same JVM.
      */
     var registerGlobal: Boolean = true
+
 }

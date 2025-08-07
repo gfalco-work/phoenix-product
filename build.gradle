@@ -7,6 +7,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '2.1.21'
     id 'org.jetbrains.kotlin.plugin.spring' version '2.1.21'
     id 'io.freefair.lombok' version '8.13.1'
+    id 'org.openapi.generator' version '7.14.0'
 }
 
 version = "0.1.0"
@@ -49,6 +50,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'jakarta.servlet:jakarta.servlet-api'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.2.0'
 
     // Phoenix libs
     implementation 'com.phoenix.events:common:1.1.1'
@@ -93,9 +96,37 @@ application {
     mainClass = "com.phoenix.product.ApplicationKt"
 }
 
+openApiGenerate {
+    generatorName = "kotlin-spring"
+    inputSpec = "$rootDir/src/main/resources/rest/openapi.yml"
+    outputDir = layout.buildDirectory.dir("generated").get().asFile.path
+    apiPackage = "com.phoenix.product.api.generated"
+    modelPackage = "com.phoenix.product.api.model.generated"
+    configOptions = [
+            "interfaceOnly": "true",                // Only interfaces for controllers
+            "useTags": "true",                      // Group methods by tag
+            "reactive": "true",                     // WebFlux support
+            "enumPropertyNaming": "UPPERCASE",      // Optional: makes enum constants readable
+            "dateLibrary": "java8",                 // Use java.time.*
+            "useSpringBoot3": "true",               // If using Spring Boot 3
+            "serializationLibrary": "jackson",      // You could also use kotlinx_serialization
+            "generateApiTests": "false",            // Disable useless test stubs
+            "generateModelTests": "false",
+            "useBeanValidation": "true",            // Add @NotNull etc. annotations
+            "skipDefaultInterface": "true",         // Avoid generating empty default impls
+            "returnResponse": "true",               // Return ResponseEntity<T>
+            "modelPropertyNaming": "camelCase",     // Makes Kotlin data class fields nice
+            "implicitHeaders": "true",              // Avoids adding headers explicitly in each method
+    ]
+}
 
 // Define integrationTest source set
 sourceSets {
+    main {
+        kotlin {
+            srcDirs += "$buildDir/generated/src/main/kotlin"
+        }
+    }
     integrationTest {
         java.srcDirs = ['src/integrationTest/kotlin']
         resources.srcDirs = ['src/integrationTest/resources']
@@ -132,5 +163,8 @@ tasks.register('integrationTest', Test) {
     useJUnitPlatform()
 }
 
+tasks.named("compileKotlin") {
+    dependsOn tasks.named("openApiGenerate")
+}
 
 check.dependsOn integrationTest

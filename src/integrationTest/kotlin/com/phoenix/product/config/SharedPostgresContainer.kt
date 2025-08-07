@@ -7,6 +7,7 @@ object SharedPostgresContainer : PostgreSQLContainer<SharedPostgresContainer>("p
         withDatabaseName("test")
         withUsername("test")
         withPassword("test")
+        withReuse(true)
         start()
     }
 }
