@@ -424,4 +424,65 @@ class ProductsApiControllerIntegrationTest {
             .expectBody()
             .jsonPath("$.error").exists()
     }
+
+    @Test
+    fun `should return all products`() {
+        val createRequest1 = CreateProductRequest(
+            name = "Product to Get",
+            category = "Electronics",
+            price = 99.99,
+            brand = "Test Brand",
+            sku = "Product-001",
+            createdBy = "peppe"
+        )
+        val createRequest2 = createRequest1.copy(brand = "M&S", category = "foods", sku = "Product-002")
+
+        webTestClient.post()
+            .uri("/api/v1/products")
+            .header("Authorization", "Bearer test-token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(createRequest1)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody()
+            .returnResult()
+
+        webTestClient.post()
+            .uri("/api/v1/products")
+            .header("Authorization", "Bearer test-token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(createRequest2)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody()
+            .returnResult()
+
+        // Get the product
+        webTestClient.get()
+            .uri { uriBuilder ->
+                uriBuilder.path("/api/v1/products")
+                    .queryParam("category", "foods")
+                    .build()
+            }
+            .header("Authorization", "Bearer test-token")
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.content.length()").isEqualTo(1)
+            .jsonPath("$.content[0].category").isEqualTo("foods")
+            .jsonPath("$.content[0].brand").isEqualTo("M&S")
+
+        // Verify DB state directly
+        runBlocking {
+            val retrievedProducts = productRepository
+                .findByFilters("foods", null, "id", "DESC", 10, 0)
+                .collectList()
+                .block()!!
+
+            assert(retrievedProducts.size == 1)
+
+            val outboxEvents = outboxRepository.findAll().collectList().block()!!
+            assert(outboxEvents.size == 2) // 2 create events
+        }
+    }
 }

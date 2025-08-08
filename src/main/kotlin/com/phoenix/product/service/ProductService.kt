@@ -41,7 +41,7 @@ class ProductService(
                     name = request.name,
                     description = request.description,
                     category = request.category,
-                    price = request.price.toDouble(),
+                    price = request.price,
                     brand = request.brand,
                     sku = request.sku,
                     specifications = request.specifications?.let { objectMapper.writeValueAsString(it) },

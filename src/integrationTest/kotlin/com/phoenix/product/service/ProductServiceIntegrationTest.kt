@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -292,6 +294,32 @@ class ProductServiceIntegrationTest {
         // When & Then
         StepVerifier.create(productService.getProduct(createdProduct.id!!))
             .expectNext(createdProduct)
+            .verifyComplete()
+    }
+
+    @Test
+    fun `should get products by category successfully`() {
+        // Given: insert a product in 'Electronics' category
+        val createdProduct = createTestProduct("GET-TEST-001")
+
+        val pageable = PageRequest.of(0, 5, Sort.unsorted()) // page 0 to include the product
+
+        // When & Then: fetch products by category
+        StepVerifier.create(productService.getProducts("Electronics", null, pageable))
+            .expectNextMatches { it.sku == createdProduct.sku && it.category == "Electronics" }
+            .verifyComplete()
+    }
+
+    @Test
+    fun `should not find products by different brand successfully`() {
+        // Given: insert a product in 'Electronics' category
+        createTestProduct("GET-TEST-001")
+
+        val pageable = PageRequest.of(0, 5, Sort.unsorted()) // page 0 to include the product
+
+        // When & Then: fetch products by category
+        StepVerifier.create(productService.getProducts("Electronics", "M&S", pageable))
+            .expectNextCount(0)
             .verifyComplete()
     }
 

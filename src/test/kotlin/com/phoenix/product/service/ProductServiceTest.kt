@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
 import java.time.Instant
@@ -301,5 +304,111 @@ class ProductServiceTest {
         verify(exactly = 1) { productRepository.findById(999L) }
         verify(exactly = 0) { productRepository.delete(any()) }
         verify(exactly = 0) { outboxService.publishProductDeletedEvent(any(), any()) }
+    }
+
+    @Test
+    fun `getProducts should return all products sorted by id`() {
+        val pageable = PageRequest.of(0, 10, Sort.by("id").ascending()) // page 0, size 10, no sorting specified
+        val mockProducts = Flux.fromIterable(listOf(
+            sampleProduct,
+            sampleProduct.copy(
+                id = 2L,
+                name = "Another Test Product with id 2",
+                brand = "M&S"
+            ),
+            sampleProduct.copy(
+                id = 3L,
+                name = "Another Test Product with id 3",
+                category = "foods"
+            )
+        ))
+
+        every { productRepository.findByFilters(null, null, "id", "ASC", 10, 0) } returns mockProducts
+
+        val result = productService.getProducts(null, null, pageable)
+
+        // Assert
+        StepVerifier.create(result)
+            .expectNextMatches { it.id == 1L }
+            .expectNextMatches { it.id == 2L }
+            .expectNextMatches { it.id == 3L }
+            .expectNextCount(0) // confirms exactly 3 items
+            .verifyComplete()
+
+        verify(exactly = 1) { productRepository.findByFilters(null, null, "id", "ASC", 10, 0) }
+    }
+
+    @Test
+    fun `getProducts should default to sorting by id descending when no sort specified`() {
+        val pageable = PageRequest.of(1, 5, Sort.unsorted()) // page 1, size 5, no sort
+        val mockProducts = Flux.fromIterable(listOf(
+            sampleProduct.copy(id = 3L),
+            sampleProduct.copy(id = 2L),
+            sampleProduct
+        ))
+
+        every { productRepository.findByFilters(null, null, "id", "DESC", 5, 5) } returns mockProducts
+
+        val result = productService.getProducts(null, null, pageable)
+
+        StepVerifier.create(result)
+            .expectNextMatches { it.id == 3L }
+            .expectNextMatches { it.id == 2L }
+            .expectNextMatches { it.id == 1L }
+            .verifyComplete()
+
+        verify(exactly = 1) { productRepository.findByFilters(null, null, "id", "DESC", 5, 5) }
+    }
+
+    @Test
+    fun `getProducts returns only the products with matching category`() {
+        val pageable = PageRequest.of(1, 5, Sort.unsorted()) // page 1, size 5, no sort
+        val mockProducts = Flux.fromIterable(listOf(
+            sampleProduct.copy(id = 3L, category = "foods")
+        ))
+
+        every { productRepository.findByFilters("foods", null, "id", "DESC", 5, 5) } returns mockProducts
+
+        val result = productService.getProducts("foods", null, pageable)
+
+        StepVerifier.create(result)
+            .expectNextMatches { it.id == 3L && it.category == "foods" }
+            .verifyComplete()
+
+        verify(exactly = 1) { productRepository.findByFilters("foods", null, "id", "DESC", 5, 5) }
+    }
+
+    @Test
+    fun `getProducts returns only the products with matching brand`() {
+        val pageable = PageRequest.of(1, 5, Sort.unsorted()) // page 1, size 5, no sort
+        val mockProducts = Flux.fromIterable(listOf(
+            sampleProduct.copy(id = 2L, brand = "M&S")
+        ))
+
+        every { productRepository.findByFilters("foods", "M&S", "id", "DESC", 5, 5) } returns mockProducts
+
+        val result = productService.getProducts("foods", "M&S", pageable)
+
+        StepVerifier.create(result)
+            .expectNextMatches { it.id == 2L && it.brand == "M&S" }
+            .verifyComplete()
+
+        verify(exactly = 1) { productRepository.findByFilters("foods", "M&S", "id", "DESC", 5, 5) }
+    }
+
+    @Test
+    fun `countProducts should return the count from repository`() {
+        // given
+        val category = "Electronics"
+        val brand = "Sony"
+        val expectedCount = 42L
+        every { productRepository.countByFilters(category, brand) } returns Mono.just(expectedCount)
+
+        // when & then
+        StepVerifier.create(productService.countProducts(category, brand))
+            .expectNext(expectedCount)
+            .verifyComplete()
+
+        verify(exactly = 1) { productRepository.countByFilters(category, brand) }
     }
 }
