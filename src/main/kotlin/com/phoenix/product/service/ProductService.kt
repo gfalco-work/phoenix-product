@@ -2,8 +2,8 @@ package com.phoenix.product.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.phoenix.observability.tracing.services.ObservabilityService
-import com.phoenix.product.api.model.CreateProductRequest
-import com.phoenix.product.api.model.UpdateProductRequest
+import com.phoenix.product.api.model.generated.CreateProductRequest
+import com.phoenix.product.api.model.generated.UpdateProductRequest
 import com.phoenix.product.exception.ProductConcurrentModificationException
 import com.phoenix.product.exception.ProductNotFoundException
 import com.phoenix.product.repository.ProductRepository
@@ -77,12 +77,12 @@ class ProductService(
                 getProduct(id)
                     .flatMap { existingProduct ->
                         val updatedProduct = existingProduct.copy(
-                            name = request.name,
+                            name = request.name ?: existingProduct.name,
                             description = request.description,
-                            category = request.category,
-                            price = request.price.toDouble(),
-                            brand = request.brand,
-                            sku = request.sku,
+                            category = request.category ?: existingProduct.category,
+                            price = request.price ?: existingProduct.price,
+                            brand = request.brand ?: existingProduct.brand,
+                            sku = request.sku ?: existingProduct.sku,
                             specifications = request.specifications?.let { objectMapper.writeValueAsString(it) },
                             tags = request.tags?.let { objectMapper.writeValueAsString(it) },
                             updatedAt = Instant.now()

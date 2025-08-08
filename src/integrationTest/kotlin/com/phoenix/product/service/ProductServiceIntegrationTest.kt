@@ -1,8 +1,8 @@
 package com.phoenix.product.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.phoenix.product.api.model.CreateProductRequest
-import com.phoenix.product.api.model.UpdateProductRequest
+import com.phoenix.product.api.model.generated.CreateProductRequest
+import com.phoenix.product.api.model.generated.UpdateProductRequest
 import com.phoenix.product.config.SharedPostgresContainer
 import com.phoenix.product.exception.ProductConcurrentModificationException
 import com.phoenix.product.exception.ProductNotFoundException
@@ -20,7 +20,6 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import reactor.test.StepVerifier
-import java.math.BigDecimal
 import java.time.Instant
 import kotlin.test.assertEquals
 
@@ -69,13 +68,14 @@ class ProductServiceIntegrationTest {
         // Given
         val createRequest = CreateProductRequest(
             name = "Integration Test Product",
-            description = "Test Description",
             category = "Electronics",
-            price = BigDecimal("99.99"),
+            description = "Test Description",
+            price = 99.99,
             brand = "TestBrand",
             sku = "INT-TEST-001",
-            specifications = mapOf("color" to "blue"),
-            tags = listOf("integration", "test")
+            createdBy = "peppe",
+            specifications = objectMapper.writeValueAsString(mapOf("color" to "blue")),
+            tags = objectMapper.writeValueAsString(listOf("integration", "test"))
         )
 
         // When & Then
@@ -111,24 +111,25 @@ class ProductServiceIntegrationTest {
         // Given
         val createRequest = CreateProductRequest(
             name = "Test Product",
-            description = "Test Description",
             category = "Electronics",
-            price = BigDecimal("99.99"),
+            price = 99.99,
             brand = "TestBrand",
             sku = "UPDATE-TEST-001",
-            specifications = mapOf("color" to "blue"),
-            tags = listOf("test")
+            createdBy = "peppe",
+            description = "Test Description",
+            specifications = objectMapper.writeValueAsString(mapOf("color" to "blue")),
+            tags = objectMapper.writeValueAsString(listOf("test"))
         )
 
         val updateRequest = UpdateProductRequest(
             name = "Updated Product Name",
             description = "Updated Description",
             category = "Updated Category",
-            price = BigDecimal("199.99"),
+            price = 199.99,
             brand = "UpdatedBrand",
             sku = "UPDATE-TEST-002",
-            specifications = mapOf("color" to "red", "size" to "large"),
-            tags = listOf("updated", "integration")
+            specifications = objectMapper.writeValueAsString(mapOf("color" to "red", "size" to "large")),
+            tags = objectMapper.writeValueAsString(listOf("updated", "integration"))
         )
 
         // When & Then
@@ -148,7 +149,7 @@ class ProductServiceIntegrationTest {
                 val (initialProduct, updatedProduct, outboxEvents) = triple
                 assertEquals(updateRequest.name, updatedProduct.name)
                 assertEquals(updateRequest.sku, updatedProduct.sku)
-                assertEquals(updateRequest.price.toDouble(), updatedProduct.price)
+                assertEquals(updateRequest.price, updatedProduct.price)
                 assertTrue(updatedProduct.version > initialProduct.version)
 
                 // Verify outbox events (create + update)
@@ -166,33 +167,34 @@ class ProductServiceIntegrationTest {
             name = "Test Product",
             description = "Test Description",
             category = "Electronics",
-            price = BigDecimal("99.99"),
+            price = 99.99,
             brand = "TestBrand",
             sku = "CONCURRENT-TEST-001",
-            specifications = mapOf("color" to "blue"),
-            tags = listOf("test")
+            createdBy = "peppe",
+            specifications = objectMapper.writeValueAsString(mapOf("color" to "blue")),
+            tags = objectMapper.writeValueAsString(listOf("test"))
         )
 
         val updateRequest1 = UpdateProductRequest(
             name = "First Update",
             description = "First Description",
             category = "Electronics",
-            price = BigDecimal("100.00"),
+            price = 100.00,
             brand = "Brand1",
             sku = "CONCURRENT-TEST-002",
-            specifications = emptyMap(),
-            tags = emptyList()
+            specifications = "",
+            tags = ""
         )
 
         val updateRequest2 = UpdateProductRequest(
             name = "Second Update",
             description = "Second Description",
             category = "Electronics",
-            price = BigDecimal("200.00"),
+            price = 200.00,
             brand = "Brand2",
             sku = "CONCURRENT-TEST-003",
-            specifications = emptyMap(),
-            tags = emptyList()
+            specifications = "",
+            tags = ""
         )
 
         StepVerifier.create(
@@ -209,12 +211,12 @@ class ProductServiceIntegrationTest {
                         .flatMap { staleProduct ->
                             // Step 3: Try to save using stale version manually to simulate optimistic locking failure
                             val manuallyUpdated = staleProduct.copy(
-                                name = updateRequest2.name,
+                                name = updateRequest2.name ?: staleProduct.name,
                                 description = updateRequest2.description,
-                                category = updateRequest2.category,
-                                price = updateRequest2.price.toDouble(),
-                                brand = updateRequest2.brand,
-                                sku = updateRequest2.sku,
+                                category = updateRequest2.category ?: staleProduct.category,
+                                price = updateRequest2.price ?: staleProduct.price,
+                                brand = updateRequest2.brand ?: staleProduct.brand,
+                                sku = updateRequest2.sku ?: staleProduct.sku,
                                 specifications = updateRequest2.specifications?.let { objectMapper.writeValueAsString(it) },
                                 tags = updateRequest2.tags?.let { objectMapper.writeValueAsString(it) },
                                 updatedAt = Instant.now()
@@ -268,11 +270,12 @@ class ProductServiceIntegrationTest {
             name = "Duplicate Product",
             description = "Different Description",
             category = "Different Category",
-            price = BigDecimal("199.99"),
+            price = 199.99,
             brand = "DifferentBrand",
+            createdBy = "peppe",
             sku = "DUPLICATE-SKU-001", // Same SKU
-            specifications = emptyMap(),
-            tags = emptyList()
+            specifications = "",
+            tags = ""
         )
 
         // When & Then
@@ -305,11 +308,12 @@ class ProductServiceIntegrationTest {
             name = "Test Product",
             description = "Test Description",
             category = "Electronics",
-            price = BigDecimal("99.99"),
+            price = 99.99,
             brand = "TestBrand",
             sku = sku,
-            specifications = mapOf("color" to "blue"),
-            tags = listOf("test")
+            createdBy = "peppe",
+            specifications = objectMapper.writeValueAsString(mapOf("color" to "blue")),
+            tags = objectMapper.writeValueAsString(listOf("test"))
         )
         return productService.createProduct(createRequest).block()!!
     }

@@ -2,8 +2,8 @@ package com.phoenix.product.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.phoenix.observability.tracing.services.ObservabilityService
-import com.phoenix.product.api.model.CreateProductRequest
-import com.phoenix.product.api.model.UpdateProductRequest
+import com.phoenix.product.api.model.generated.CreateProductRequest
+import com.phoenix.product.api.model.generated.UpdateProductRequest
 import com.phoenix.product.exception.ProductConcurrentModificationException
 import com.phoenix.product.exception.ProductNotFoundException
 import com.phoenix.product.repository.ProductRepository
@@ -23,7 +23,6 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
 import reactor.core.publisher.Mono
 import reactor.test.StepVerifier
-import java.math.BigDecimal
 import java.time.Instant
 import java.util.function.Function
 
@@ -81,22 +80,23 @@ class ProductServiceTest {
             name = "Test Product",
             description = "Test Description",
             category = "Electronics",
-            price = BigDecimal("99.99"),
+            price = 99.99,
             brand = "TestBrand",
             sku = "TEST-SKU-001",
-            specifications = mapOf("color" to "blue"),
-            tags = listOf("electronics")
+            createdBy = "system",
+            specifications = """{"color":"blue","size":"medium"}""",
+            tags = """["electronics","gadget"]"""
         )
 
         updateRequest = UpdateProductRequest(
             name = "Updated Product",
             description = "Updated Description",
             category = "Electronics",
-            price = BigDecimal("109.99"),
+            price = 109.99,
             brand = "UpdatedBrand",
             sku = "UPDATED-SKU-001",
-            specifications = mapOf("color" to "red"),
-            tags = listOf("electronics", "updated")
+            specifications = """{"color":"red"}""",
+            tags = """["electronics","updated"]"""
         )
     }
 
@@ -187,9 +187,9 @@ class ProductServiceTest {
         // Given
         val updatedInstant = fixedInstant.plusSeconds(60)
         val updatedProduct = sampleProduct.copy(
-            name = updateRequest.name,
-            sku = updateRequest.sku,
-            price = updateRequest.price.toDouble(),
+            name = updateRequest.name ?: sampleProduct.name,
+            sku = updateRequest.sku ?: sampleProduct.sku,
+            price = updateRequest.price?: sampleProduct.price,
             updatedAt = updatedInstant
         )
 

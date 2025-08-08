@@ -1,12 +1,13 @@
 package com.phoenix.product.exception
 
-import com.phoenix.product.api.model.ErrorResponse
+import com.phoenix.product.api.model.generated.ErrorResponse
 import mu.KotlinLogging
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
+import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import java.time.OffsetDateTime
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -15,27 +16,34 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(ProductNotFoundException::class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    fun handleProductNotFound(ex: ProductNotFoundException): ErrorResponse {
+    fun handleProductNotFound(ex: ProductNotFoundException, request: ServerHttpRequest): ErrorResponse {
         log.info { "Product not found: ${ex.message}" }
         return ErrorResponse(
-            error = "PRODUCT_NOT_FOUND",
-            message = ex.message ?: "Product not found"
+            error = ex.message,
+            timestamp = OffsetDateTime.now(),
+            path = request.path.value()
         )
     }
 
     @ExceptionHandler(ProductConcurrentModificationException::class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    fun handleProductAlreadyExists(ex: ProductConcurrentModificationException): ErrorResponse {
+    fun handleProductAlreadyExists(ex: ProductConcurrentModificationException, request: ServerHttpRequest): ErrorResponse {
         log.warn { "Product concurrency issue: ${ex.message}" }
         return ErrorResponse(
-            error = "PRODUCT_ALREADY_EXISTS",
-            message = ex.message ?: "Product already exists"
+            error = ex.message,
+            timestamp = OffsetDateTime.now(),
+            path = request.path.value()
         )
     }
 
     @ExceptionHandler(NumberFormatException::class)
-    fun handleNumberFormatException(ex: NumberFormatException): ResponseEntity<String> {
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    fun handleNumberFormatException(ex: NumberFormatException, request: ServerHttpRequest): ErrorResponse {
         log.error(ex) { "Invalid ID format received" }
-        return ResponseEntity.badRequest().body("Invalid ID format: must be a number.")
+        return ErrorResponse(
+            error = "Invalid ID format: must be a number.",
+            timestamp = OffsetDateTime.now(),
+            path = request.path.value()
+        )
     }
 }
