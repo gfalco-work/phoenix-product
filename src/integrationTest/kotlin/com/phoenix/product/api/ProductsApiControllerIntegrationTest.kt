@@ -12,6 +12,7 @@ import io.opentelemetry.api.GlobalOpenTelemetry
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNotNull
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
@@ -363,6 +364,59 @@ class ProductsApiControllerIntegrationTest {
     @Test
     fun `should return 404 when deleting non-existent product`() {
         webTestClient.delete()
+            .uri("/api/v1/products/999")
+            .header("Authorization", "Bearer test-token")
+            .exchange()
+            .expectStatus().isNotFound
+            .expectBody()
+            .jsonPath("$.error").exists()
+    }
+
+    @Test
+    fun `should get product successfully`() {
+        // First create a product
+        val createRequest = CreateProductRequest(
+            name = "Product to Get",
+            category = "Electronics",
+            price = 99.99,
+            brand = "Test Brand",
+            sku = "Product-001",
+            createdBy = "peppe"
+        )
+
+        val createResponse = webTestClient.post()
+            .uri("/api/v1/products")
+            .header("Authorization", "Bearer test-token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(createRequest)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody()
+            .returnResult()
+
+        val productId = objectMapper.readTree(createResponse.responseBody)["id"].asLong()
+
+        // Get the product
+        webTestClient.get()
+            .uri("/api/v1/products/$productId")
+            .header("Authorization", "Bearer test-token")
+            .exchange()
+            .expectStatus().isOk
+
+        // Verify product was deleted from database
+        runBlocking {
+            val retrievedProduct = productRepository.findById(productId).block()
+            assertNotNull(retrievedProduct)
+
+            // Verify outbox event was created for delete
+            val outboxEvents = outboxRepository.findAll().collectList().block()!!
+            assert(outboxEvents.size == 1) // Create events
+        }
+    }
+
+    @Test
+    fun `should return 404 when getting non-existent product`() {
+        webTestClient.get()
             .uri("/api/v1/products/999")
             .header("Authorization", "Bearer test-token")
             .exchange()

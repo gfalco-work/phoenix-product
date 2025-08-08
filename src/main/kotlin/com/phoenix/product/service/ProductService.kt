@@ -11,8 +11,10 @@ import com.phoenix.product.repository.model.Product
 import mu.KotlinLogging
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Instant
 
@@ -149,5 +151,24 @@ class ProductService(
                 "product.id" to id.toString()
             )
         )
+    }
+
+    fun getProducts(category: String?, brand: String?, pageable: PageRequest): Flux<Product> {
+        val sortOrder = pageable.sort.firstOrNull()
+        val sortField = sortOrder?.property ?: "id"      // default to id if none provided
+        val sortDir = if (sortOrder?.isAscending == true) "ASC" else "DESC"
+
+        return productRepository.findByFilters(
+            category,
+            brand,
+            sortField,
+            sortDir,
+            pageable.pageSize,
+            pageable.offset.toInt()
+        )
+    }
+
+    fun countProducts(category: String?, brand: String?): Mono<Long> {
+        return productRepository.countByFilters(category, brand)
     }
 }
