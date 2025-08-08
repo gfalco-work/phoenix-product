@@ -1,9 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <!-- Include your library's logging configuration -->
-    <include resource="logback-loki.xml"/>
-    <logger name="com.phoenix.product" level="DEBUG" />
-    <logger name="org.springframework.data.r2dbc" level="DEBUG" />
+<configuration scan="false">
+
+    <!-- show Logback status on startup (useful for debugging) -->
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
+
+    <!-- CONSOLE appender: JSON output controlled by providers -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <loggerName>
+                    <fieldName>class</fieldName>
+                    <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+                </loggerName>
+                <message/>
+                <stackTrace>
+                    <fieldName>exception</fieldName>
+                </stackTrace>
+                <pattern>
+                    <pattern>{"application":"%X{application:-}","trace_id":"%X{trace_id:-}","span_id":"%X{span_id:-}"}</pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <!-- your package log levels -->
+    <logger name="com.phoenix.product" level="DEBUG"/>
+    <logger name="org.springframework.data.r2dbc" level="DEBUG"/>
     <logger name="org.springframework.kafka" level="DEBUG"/>
     <logger name="org.flywaydb" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <!-- add your LOKI appender here (or include logback-loki.xml and reference LOKI in prod profile) -->
+    </root>
+
 </configuration>
+
+
+        <!--<configuration>-->
+<!--&lt;!&ndash; Console appender for local development &ndash;&gt;-->
+
+
+<!--&lt;!&ndash; Loki appender with improved connection handling &ndash;&gt;-->
+<!--<appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">-->
+<!--    <http>-->
+<!--        <url>${LOKI_URL:-http://localhost:3100/loki/api/v1/push}</url>-->
+<!--        <connectionTimeoutMs>10000</connectionTimeoutMs>-->
+<!--        <requestTimeoutMs>15000</requestTimeoutMs>-->
+<!--    </http>-->
+<!--    <format>-->
+<!--        <label>-->
+<!--            <pattern>application=%X{application},system=phoenix,env=${ENV:-local},hostname=${HOSTNAME:-unknown},trace_id=%X{trace_id:-none}</pattern>-->
+<!--        </label>-->
+<!--        <message>-->
+<!--            <pattern>-->
+<!--                {"timestamp":"%d{ISO8601}","level":"%level","thread":"%thread","class":"%logger{36}","message":"%message","exception":"%exception","application":"%X{application:-}","trace_id":"%X{trace_id:-}","span_id":"%X{span_id:-}"}-->
+<!--            </pattern>-->
+<!--        </message>-->
+<!--    </format>-->
+<!--    <batchTimeoutMs>1000</batchTimeoutMs>-->
+<!--</appender>-->
+
+<!--&lt;!&ndash; Root logger configuration &ndash;&gt;-->
+
+
+<!--&lt;!&ndash; Package-specific logging levels &ndash;&gt;-->
+<!--<logger name="com.phoenix.observability" level="DEBUG"/>-->
+<!--<logger name="io.opentelemetry" level="DEBUG"/>-->
+<!--</configuration>-->

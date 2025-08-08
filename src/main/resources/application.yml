@@ -27,6 +27,10 @@ spring:
     password: password123
     enabled: true
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
 management:
   endpoints:
     web:

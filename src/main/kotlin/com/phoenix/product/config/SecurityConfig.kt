@@ -17,6 +17,8 @@ class SecurityConfig {
         return http
             .authorizeExchange { exchanges ->
                 exchanges
+                    .pathMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**")
+                    .permitAll()
                     .pathMatchers("/public/**")
                     .hasAuthority("SCOPE_api.read.public")
                     .pathMatchers(HttpMethod.GET, "/**")
